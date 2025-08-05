@@ -113,9 +113,7 @@ class Fighter extends Sprite {
             width: 125, height: 50
         };
 
-        // Este é o seu novo "controle". Aumente este valor se o personagem
-        // ainda para muito longe da borda. Diminua se ele estiver entrando na borda.
-        this.ajusteBorda = 100; // <<< NOVO! Ajuste em pixels para as bordas.
+        this.ajusteBorda = 100; 
 
         this.onGround = false;
 
