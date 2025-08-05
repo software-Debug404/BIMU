@@ -1,43 +1,39 @@
 # Bimu
-
 Sobre o Projeto
+Bimu é um jogo de luta 2D em estilo plataforma desenvolvido com HTML, CSS e JavaScript puro. O objetivo principal foi criar um sistema de combate simples, responsivo e visualmente atrativo utilizando apenas tecnologias web, sem bibliotecas externas ou banco de dados.
 
-Bimus é um jogo de luta inspirado no estilo 2D de plataforma, onde o protagonista, Kaito, enfrenta criaturas mitológicas em combates baseados em um ritual antigo chamado "bimus". Conforme avança, ele se aproxima de sua vingança contra O Caçador, mas também enfrenta o risco de perder sua própria identidade no processo.
+Funcionalidades Técnicas
+Sistema de combate 1x1 com movimentação fluida, detecção de colisões e animações de ataque.
 
-História
+Múltiplas arenas, com transições entre biomas distintos (floresta, deserto, submundo), implementadas com mudanças de cenário e sprites.
 
-Após a morte de seus pais, Kaito busca o mestre Hachiro para aprender a arte da espada e derrotar O Caçador. Porém, cada luta no ritual dos "bimus" não apenas fortalece Kaito, mas também o muda. Ele começa a sentir as presenças dos inimigos que derrotou e percebe que a vingança pode não trazer a paz que deseja.
+Sprites animados em pixel art, controlados via JavaScript usando manipulação do DOM e canvas.
 
-Mecânicas do Jogo
+Sistema de evolução baseado em variáveis de estado (vida, força, velocidade), sem persistência de dados.
 
-Lutas 1x1 contra criaturas da mitologia em um sistema de combate fluido e dinâmico.
+Decisões do jogador impactam o comportamento de algumas lutas e fases, usando apenas lógica condicional em JavaScript.
 
-Arenas variadas inspiradas em diferentes biomas:
+Controle de entrada via teclado, com movimentações direcionais, pulo e ataque responsivo.
 
-Floresta: Um templo antigo em meio à natureza.
+Design responsivo para funcionamento básico em diferentes tamanhos de tela.
 
-Deserto: Ruínas banhadas por um pôr do sol intenso.
+Tecnologias Utilizadas
+HTML5: estrutura da página e carregamento das arenas;
 
-Submundo: Um altar demoníaco cercado por lava.
+CSS3: estilização dos elementos, cenários e efeitos visuais;
 
-Evolução do personagem através do ritual dos "bimus", influenciando a jogabilidade e a narrativa.
+JavaScript: Controle de lógica de jogo e combate;
 
-Decisões impactantes que podem levar Kaito a diferentes finais, incluindo um combate final contra sua versão corrompida.
+Manipulação do DOM e animações;
 
-Tecnologia Utilizada
+Eventos de teclado;
 
-Linguagem: JavaScript (Backend e Frontend)
+Gerenciamento de estado do jogo (vida, dano, cenário, progresso);
 
-Banco de Dados: SQL para armazenamento de progresso e dados do jogo
-
-Ferramentas de Versionamento: Git
-
-Arte: Sprites e tilesets personalizados no estilo pixel art.
-
-Objetivos e Desenvolvimento
-
-Este projeto está em desenvolvimento com o objetivo de criar uma experiência de luta intensa e envolvente, com uma narrativa profunda e decisões que impactam o jogador. O foco está em um sistema de combate estratégico e um enredo imersivo sobre vingança, identidade e sacrifício.
+Objetivo do Projeto
+Explorar o desenvolvimento de jogos diretamente no navegador usando apenas tecnologias nativas da web, sem frameworks ou engines externas. O foco foi a construção de uma base sólida para jogos 2D com combate, animações e múltiplos cenários, tudo gerenciado com JavaScript puro.
 
 Contato
-
-Para mais informações, feedback ou colaborações, entre em contato com [Kauan Davi Oliveira de Sá](https://www.linkedin.com/in/kauan-davi-oliveira-de-s%C3%A1-4539ba242/).
+Para mais informações, feedback ou colaborações, entre em contato com:
+Kauan Davi Oliveira de Sá
+kauandavioliveiradesa@gmail.com
