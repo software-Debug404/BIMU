@@ -1,4 +1,7 @@
 # Bimu
+
+https://ajornadasamurai.netlify.app/
+
 Sobre o Projeto
 Bimu é um jogo de luta 2D em estilo plataforma desenvolvido com HTML, CSS e JavaScript puro. O objetivo principal foi criar um sistema de combate simples, responsivo e visualmente atrativo utilizando apenas tecnologias web, sem bibliotecas externas ou banco de dados.
 
