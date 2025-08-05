@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Jornada Samurai</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./css/piano.css">
+    
+    <script type="module" src="./js/gameConfig.js"></script>
+    <script type="module" src="./js/loader.js"></script>
+    <script type="module" src="./js/audioManager.js"></script> <script type="module" src="./js/sprites.js"></script>
+    <script type="module" src="./js/controls.js"></script>
+    
+    <script src="./js/ui.js" defer></script> 
+    
+    <script type="module" src="./js/game.js" defer></script>
+</head>
+<body>
+    <div class="overlay"></div>
+
+    <div class="menu-container" id="mainMenu">
+        <h1 class="title">BIMU</h1>
+        <p class="subtitle">A Jornada do Samurai</p>
+        <div class="start-prompt">Pressione ENTER para começar</div>
+    </div>
+
+    <div class="controls-container" id="controlsScreen">
+        <h2>Controles do Jogo</h2>
+        <div class="controls-grid">
+            <div class="control-item">
+                <div class="key">W</div> <div class="control-description">Pular</div>
+            </div>
+            <div class="control-item">
+                <div class="key">A</div> <div class="control-description">Mover para Esquerda</div>
+            </div>
+             <div class="control-item">
+                <div class="key">D</div> <div class="control-description">Mover para Direita</div>
+            </div>
+            <div class="control-item">
+                <div class="key">S</div> <div class="control-description">Proteger</div>
+            </div>
+            <div class="control-item">
+                <div class="key">E</div> <div class="control-description">Usar Poção</div>
+            </div>
+             <div class="control-item">
+                <div class="key key-space">ESPAÇO</div> <div class="control-description">Atacar</div>
+            </div>
+             <div class="control-item">
+                <div class="key">Q</div> <div class="control-description">Interagir (Portal / Piano)</div>
+            </div>
+            <div class="control-item">
+                <div class="key">ESC</div> <div class="control-description">Sair do Piano</div>
+            </div>
+        </div>
+        <div class="continue-prompt">Pressione ENTER para jogar</div>
+    </div>
+
+    <div class="gameover-container" id="gameOverScreen">
+        <h2 class="gameover-title">GAME OVER</h2>
+        <p class="subtitle">O samurai foi derrotado em batalha...</p>
+        <div class="buttons-container">
+            <button class="game-button" id="restartButton">
+                Voltar ao Início
+            </button>
+        </div>
+    </div>
+
+    <div class="loading-container" id="loadingScreen">
+        <div class="loading-title">Entrando no nível:</div>
+        <div class="loading-level" id="levelNumber">1</div>
+        <div class="loading-bar-container">
+            <div class="loading-bar" id="loadingBar"></div>
+        </div>
+        <div class="loading-tip" id="loadingTip">Dica: Aprenda os padrões de ataque dos seus inimigos.</div>
+    </div>
+    
+    <div id="piano-container-wrapper" class="hidden"></div>
+
+    <canvas class="hidden"></canvas>
+</body>
+</html>
