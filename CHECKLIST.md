@@ -58,55 +58,68 @@ Este checklist organiza as melhorias por prioridade. As marcas indicam implement
 
 ## 7. Piano e identidade do jogo
 
-- [ ] Introduzir no piano da décima fase a melodia que Bimu e Hana tocavam juntos.
-- [ ] Ensinar a parte de Bimu e permitir praticar a sequência antes do desfecho.
-- [ ] Fazer o jogador terminar a parte de Bimu e esperar, deixando a última nota para Hana.
-- [ ] Fazer a nota de Hana mudar o destino do portal, revelando a cozinha de casa.
+- [x] Introduzir no piano da décima fase a melodia que Bimu e Hana tocavam juntos.
+- [x] Ensinar a parte de Bimu e permitir praticar a sequência antes do desfecho.
+- [x] Fazer o jogador terminar a parte de Bimu e esperar, deixando a última nota para Hana.
+- [x] Fazer a nota de Hana mudar o destino do portal, revelando a cozinha de casa.
 - [x] Permitir sair e reabrir o piano com Esc e botão, preservando os controles do jogo.
-- [ ] Permitir repetir a sequência sem perder a campanha e oferecer uma alternativa acessível para concluir a cena.
-- [ ] Reservar bênçãos e melhorias musicais para os intervalos do modo sem fim.
+- [x] Permitir repetir a sequência sem perder a campanha e oferecer uma alternativa acessível para concluir a cena.
+- [ ] Acrescentar bênçãos e melhorias musicais aos intervalos do modo sem fim.
 
 ## 8. Modo história — A Última Nota
 
-Texto completo de referência: [HISTORIA.md](HISTORIA.md). A história foi registrada; os itens abaixo ainda precisam ser implementados no jogo.
+Texto completo de referência: [HISTORIA.md](HISTORIA.md). A campanha está implementada em dez fases, com trechos narrativos, progresso salvo e desfecho musical.
 
-- [ ] Adicionar a opção “História” ao menu com o título “BIMU — A Jornada do Samurai: A Última Nota”.
-- [ ] Separar a campanha, com desfecho na décima fase, do modo de arenas sem fim existente.
-- [ ] Dividir a narrativa em trechos curtos antes ou depois dos duelos, sem interromper ataques em andamento.
-- [ ] Permitir avançar, pular e reler os trechos, mantendo a simulação pausada durante a leitura.
-- [ ] Criar a abertura: desaparecimento de Hana, clarão laranja, cratera e primeira nota vinda debaixo da terra.
-- [ ] Fase 1: apresentar a clareira de lápides azuis, o minotauro e o corte deixado por Bimu na árvore.
-- [ ] Fase 2: apresentar o guerreiro esqueleto que defende as ruínas da cidade no deserto.
-- [ ] Fase 3: mostrar a lua na mesma posição, o corte coberto de musgo e o lanceiro com o brasão do antigo mestre.
-- [ ] Fase 4: contar por que o Comandante Samurai abriu o portal e incluir o aviso “Se ouvir a voz dela, não responda”.
-- [ ] Fases 5 a 9: mostrar as travessias repetidas, a passagem irregular do tempo e a desorientação de Bimu.
-- [ ] Fase 10: apresentar a clareira sem inimigo e o piano de casa com a marca redonda da caneca de Hana.
-- [ ] Integrar o desfecho à interação musical descrita na seção 7, preservando a espera de Bimu pela última nota de Hana.
-- [ ] Mostrar Hana na cozinha e a fala “Anda, Bimu! Eu não sei tocar a sua parte!”.
-- [ ] Encerrar a campanha com o resgate, o fechamento do portal e o piano deixado na clareira.
-- [ ] Criar o epílogo do chá na soleira, com Bimu marcando o ritmo no batente e Hana dando a última batida.
-- [ ] Preparar os elementos visuais e sonoros necessários para Hana, árvore marcada, brasão, piano, cozinha e epílogo.
-- [ ] Salvar o progresso da campanha, incluindo trechos vistos e conclusão, separadamente dos outros modos.
-- [ ] Validar a ordem dos trechos e garantir que derrota, nova tentativa e retorno ao jogo não pulem partes essenciais.
+- [x] Adicionar a opção “História” ao menu com o título “BIMU — A Jornada do Samurai: A Última Nota”.
+- [x] Separar a campanha, com desfecho na décima fase, do modo de arenas sem fim existente.
+- [x] Dividir a narrativa em trechos curtos antes ou depois dos duelos, sem interromper ataques em andamento.
+- [x] Permitir avançar, pular e reler os trechos, mantendo a simulação pausada durante a leitura.
+- [x] Criar a abertura: desaparecimento de Hana, clarão laranja, cratera e primeira nota vinda debaixo da terra.
+- [x] Fase 1: apresentar a clareira de lápides azuis, o minotauro e o corte deixado por Bimu na árvore.
+- [x] Fase 2: apresentar o guerreiro esqueleto que defende as ruínas da cidade no deserto.
+- [x] Fase 3: mostrar a lua na mesma posição, o corte coberto de musgo e o lanceiro com o brasão do antigo mestre.
+- [x] Fase 4: contar por que o Comandante Samurai abriu o portal e incluir o aviso “Se ouvir a voz dela, não responda”.
+- [x] Fases 5 a 9: mostrar as travessias repetidas, a passagem irregular do tempo e a desorientação de Bimu.
+- [x] Fase 10: apresentar a clareira sem inimigo e o piano de casa com a marca redonda da caneca de Hana.
+- [x] Integrar o desfecho à interação musical descrita na seção 7, preservando a espera de Bimu pela última nota de Hana.
+- [x] Mostrar Hana na cozinha e a fala “Anda, Bimu! Eu não sei tocar a sua parte!”.
+- [x] Encerrar a campanha com o resgate, o fechamento do portal e o piano deixado na clareira.
+- [x] Criar o epílogo do chá na soleira, com Bimu marcando o ritmo no batente e Hana dando a última batida.
+- [ ] Conferir no Chrome as novas ilustrações e a narração de Hana, árvore marcada, comandante, piano, cozinha e epílogo.
+- [x] Salvar o progresso da campanha, incluindo trechos vistos e conclusão, separadamente dos outros modos.
+- [x] Validar a ordem dos trechos e garantir que derrota, nova tentativa e retorno ao jogo não pulem partes essenciais.
 
 ## 9. Multiplayer 1x1 — jogador contra jogador
 
-O formato local ou online ainda precisa ser definido. Essa decisão determina os controles e a necessidade de infraestrutura de rede.
+Estão previstos os modos local e online. A versão local está implementada; a versão online ainda precisa de salas e infraestrutura de rede.
 
-- [ ] Definir se a primeira versão do 1x1 será local ou online.
-- [ ] Adicionar a opção “Versus 1x1” ao menu, separada da campanha e do modo sem fim.
-- [ ] Permitir que dois jogadores controlem lutadores independentes, desativando a IA nesse modo.
-- [ ] Se local: definir comandos distintos para os dois jogadores e verificar teclas pressionadas simultaneamente.
+- [x] Implementar a primeira versão do 1x1 local, no mesmo computador.
+- [x] Adicionar a opção “Versus 1x1” ao menu, separada da campanha e do modo sem fim.
+- [x] Permitir que dois jogadores controlem lutadores independentes, desativando a IA nesse modo.
+- [x] Se local: definir comandos distintos para os dois jogadores e verificar teclas pressionadas simultaneamente.
 - [ ] Se online: definir criação/entrada em sala, conexão dos dois jogadores e sincronização da partida.
-- [ ] Identificar Jogador 1 e Jogador 2 com indicadores visuais e barras de vida próprias.
-- [ ] Começar a luta somente quando ambos estiverem prontos, com posições iniciais e condições equivalentes.
-- [ ] Adaptar dano, defesa, combos e colisões para os dois lutadores, incluindo ataques simultâneos sem vantagem pela ordem de atualização.
-- [ ] Definir regras de poções, duração da luta, rounds e empate para o modo competitivo.
-- [ ] Exibir o resultado da partida e oferecer revanche ou retorno ao menu.
-- [ ] Definir pausa, saída de um jogador e, se online, perda de conexão e reconexão.
-- [ ] Manter recursos e resultados do versus separados do progresso da campanha.
-- [ ] Testar vitória dos dois lados, empate, entradas simultâneas, revanche e limpeza dos controles ao trocar de modo.
+- [x] Identificar Jogador 1 e Jogador 2 com indicadores visuais e barras de vida próprias.
+- [x] Começar a luta somente quando ambos estiverem prontos, com posições iniciais e condições equivalentes.
+- [x] Adaptar dano, defesa, combos e colisões para os dois lutadores, incluindo ataques simultâneos sem vantagem pela ordem de atualização.
+- [x] Definir regras: sem poções, 60 segundos por round, melhor de três; empate repete o round sem pontuar.
+- [x] Exibir o resultado da partida e oferecer revanche ou retorno ao menu.
+- [x] Pausar a partida local para os dois jogadores e permitir voltar ao menu.
+- [ ] Tratar perda de conexão e reconexão no modo online.
+- [x] Manter recursos e resultados do versus separados do progresso da campanha.
+- [x] Testar vitória dos dois lados, empate, entradas simultâneas, revanche e limpeza dos controles ao trocar de modo.
 - [ ] Se online: validar latência, sincronização de dano e autoridade das regras da partida.
+
+## 10. Filme narrado da história
+
+- [ ] Apresentar cada trecho em quadros com imagens e legendas, mantendo a simulação pausada.
+- [ ] Narrar os quadros em português usando a voz disponível no navegador.
+- [ ] Sincronizar a passagem dos quadros com o fim da fala.
+- [ ] Adicionar pausa, repetição, quadro anterior/próximo e opção de desligar a narração.
+- [ ] Preservar legendas e avanço por tempo de leitura quando a voz estiver desligada ou indisponível.
+- [ ] Cancelar falas e temporizadores ao sair da cena ou perder o foco.
+- [ ] Criar imagens para o desaparecimento de Hana, a árvore marcada, o comandante e a clareira do piano.
+- [x] Criar ilustrações para o reencontro e o epílogo, com prompts registrados em `assets/story/`.
+- [ ] Testar no Chrome a apresentação e os controles da narração.
 
 ## Validação da primeira entrega
 
@@ -122,9 +135,9 @@ O formato local ou online ainda precisa ser definido. Essa decisão determina os
 
 ## Situação da primeira entrega
 
-Implementados os itens de base, impacto dos golpes e conforto. Validação automatizada: 21/21 testes de combate e 8/8 cenários de integração passaram; 114/114 configurações de animação dos inimigos conferidas com os PNGs. As próximas etapas incluem postura/parry, comportamentos próprios dos inimigos, melhorias entre fases, a campanha “A Última Nota” com seu desfecho musical e o multiplayer 1x1. A campanha e o multiplayer estão planejados neste checklist e ainda não foram implementados.
+Implementados os itens de base, impacto dos golpes e conforto. Validação automatizada: 21/21 testes de combate e 8/8 cenários de integração passaram; 114/114 configurações de animação dos inimigos conferidas com os PNGs. As próximas etapas incluem postura/parry, comportamentos próprios dos inimigos, melhorias entre fases, a campanha “A Última Nota” com seu desfecho musical e o multiplayer 1x1. A campanha e o multiplayer local estão implementados. O modo online, postura/parry, padrões próprios dos inimigos e melhorias entre fases continuam pendentes.
 
-A conferência visual no navegador está pendente: a ferramenta de acesso ao navegador retornou “The browser access host is unavailable” nesta sessão. Os testes automatizados usam dimensões reais dos PNGs e substitutos de DOM/áudio; eles não comprovam aparência, som percebido ou sensação dos controles.
+A conferência no Chrome já cobriu menu, prólogo, controles, pausa e releitura; o filme narrado e as demais telas estão em validação. Os testes automatizados usam dimensões reais dos PNGs e substitutos de DOM/áudio; eles não comprovam aparência, som percebido ou sensação dos controles.
 
 ## Como executar
 

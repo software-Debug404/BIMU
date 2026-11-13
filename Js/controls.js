@@ -1,86 +1,111 @@
 import { GAME_CONFIG } from './gameConfig.js';
 
-export const keys = {
-    a: { pressed: false }, d: { pressed: false }, s: { pressed: false },
-    w: { pressed: false, hold: false }, space: { pressed: false, hold: false },
-    e: { pressed: false, hold: false }, q: { pressed: false, hold: false },
-    escape: { pressed: false, hold: false },
-    lastDirection: 'd', lastMovementPress: { key: null, time: 0 }, isRunning: false
-};
-
-export function resetKeys() {
-    for (const value of Object.values(keys)) {
-        if (value && typeof value === 'object' && 'pressed' in value) {
-            value.pressed = false;
-            if ('hold' in value) value.hold = false;
-        }
-    }
-    keys.isRunning = false;
-    keys.lastMovementPress = { key: null, time: 0 };
+function createInput() {
+    return {
+        a: { pressed: false }, d: { pressed: false }, s: { pressed: false },
+        w: { pressed: false, hold: false }, space: { pressed: false, hold: false },
+        e: { pressed: false, hold: false }, q: { pressed: false, hold: false },
+        escape: { pressed: false, hold: false }, ready: { pressed: false, hold: false },
+        lastDirection: 'd', lastMovementPress: { key: null, time: 0 }, isRunning: false
+    };
 }
 
-export function handleControls(player) {
+export const keys = createInput();
+export const keys2 = createInput();
+const inputs = [keys, keys2];
+
+export function resetKeys() {
+    for (const input of inputs) {
+        for (const value of Object.values(input)) {
+            if (value && typeof value === 'object' && 'pressed' in value) {
+                value.pressed = false;
+                if ('hold' in value) value.hold = false;
+            }
+        }
+        input.isRunning = false;
+        input.lastMovementPress = { key: null, time: 0 };
+    }
+}
+
+// Each physical press signals readiness once. Releasing the key permits a new press.
+export function consumeReady(playerIndex) {
+    const ready = inputs[playerIndex]?.ready;
+    if (!ready?.pressed || ready.hold) return false;
+    ready.hold = true;
+    return true;
+}
+
+export function handleControls(player, input = keys, { allowPotion = true } = {}) {
     player.velocity.x = 0;
     if (player.dead) return;
 
     // Defesa só começa quando a ação anterior terminou; não concede imunidade ao atacar.
     if (player.isAttacking || player.isHealing || player.isHurt) return;
-    if (keys.s.pressed && player.onGround) {
+    if (input.s.pressed && player.onGround) {
         player.protect();
         return;
     }
     player.stopProtecting();
 
     let sprite = player.onGround ? 'idle' : 'jumping';
-    const direction = keys[keys.lastDirection]?.pressed
-        ? keys.lastDirection : keys.a.pressed ? 'a' : keys.d.pressed ? 'd' : null;
+    const direction = input[input.lastDirection]?.pressed
+        ? input.lastDirection : input.a.pressed ? 'a' : input.d.pressed ? 'd' : null;
     if (direction) {
         player.facing = direction === 'a' ? 'left' : 'right';
-        player.velocity.x = (direction === 'a' ? -1 : 1) * (keys.isRunning ? 5.5 : 3);
-        if (player.onGround) sprite = keys.isRunning ? 'running' : 'walk';
+        player.velocity.x = (direction === 'a' ? -1 : 1) * (input.isRunning ? 5.5 : 3);
+        if (player.onGround) sprite = input.isRunning ? 'running' : 'walk';
     }
-    if (keys.w.pressed && !keys.w.hold) {
+    if (input.w.pressed && !input.w.hold) {
         player.jump();
-        keys.w.hold = true;
+        input.w.hold = true;
         sprite = 'jumping';
     }
-    if (keys.space.pressed && !keys.space.hold) {
+    if (input.space.pressed && !input.space.hold) {
         player.attack();
-        keys.space.hold = true;
+        input.space.hold = true;
     }
-    if (keys.e.pressed && !keys.e.hold) {
-        player.usePotion();
-        keys.e.hold = true;
+    if (input.e.pressed && !input.e.hold) {
+        if (allowPotion) player.usePotion();
+        input.e.hold = true;
     }
     player.setSprite(sprite);
 }
 
-function keyName(event) {
-    return event.code === 'Space' ? 'space' : event.key.toLowerCase();
+function binding(event) {
+    const key = event.key.toLowerCase();
+    const second = {
+        arrowleft: 'a', arrowright: 'd', arrowup: 'w', arrowdown: 's', l: 'space', enter: 'ready'
+    }[key];
+    if (second) return [keys2, second];
+    const first = event.code === 'Space' || key === ' ' ? 'space' : key === 'f' ? 'ready' : key;
+    if (keys[first] && typeof keys[first] === 'object' && 'pressed' in keys[first]) return [keys, first];
+    return null;
 }
 
 window.addEventListener('keydown', event => {
-    const key = keyName(event);
-    if (!keys[key] || typeof keys[key] !== 'object' || !('pressed' in keys[key])) return;
-    if (event.target.closest?.('input, button, select, textarea')) return;
+    const mapped = binding(event);
+    if (!mapped) return;
+    if (event.target?.closest?.('input, button, select, textarea')) return;
     if (window.jogoIniciado) event.preventDefault();
     if (event.repeat) return;
-    keys[key].pressed = true;
+    const [input, key] = mapped;
+    input[key].pressed = true;
     if (key === 'a' || key === 'd') {
         const now = performance.now();
-        keys.isRunning = keys.lastMovementPress.key === key &&
-            now - keys.lastMovementPress.time < GAME_CONFIG.DOUBLE_TAP_WINDOW;
-        keys.lastMovementPress = { key, time: now };
-        keys.lastDirection = key;
+        input.isRunning = input.lastMovementPress.key === key &&
+            now - input.lastMovementPress.time < GAME_CONFIG.DOUBLE_TAP_WINDOW;
+        input.lastMovementPress = { key, time: now };
+        input.lastDirection = key;
     }
 });
 
 window.addEventListener('keyup', event => {
-    const key = keyName(event);
-    if (!keys[key] || typeof keys[key] !== 'object' || !('pressed' in keys[key])) return;
-    keys[key].pressed = false;
-    if ('hold' in keys[key]) keys[key].hold = false;
-    if (key === 'a' || key === 'd') keys.isRunning = false;
+    const mapped = binding(event);
+    if (!mapped) return;
+    const [input, key] = mapped;
+    input[key].pressed = false;
+    if ('hold' in input[key]) input[key].hold = false;
+    if (key === 'a' || key === 'd') input.isRunning = false;
 });
 
 window.addEventListener('blur', resetKeys);

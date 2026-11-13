@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BIMU — A Jornada do Samurai</title>
+    <title>BIMU — A Jornada do Samurai: A Última Nota</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./css/piano.css">
     <script src="./Js/ui.js" defer></script>
@@ -15,8 +16,15 @@
     <main class="menu-container" id="mainMenu">
         <h1 class="title">BIMU</h1>
         <p class="subtitle">A Jornada do Samurai</p>
-        <button class="game-button" id="startButton" type="button">Começar</button>
-        <p class="start-prompt">Pressione ENTER para começar</p>
+        <p class="menu-episode">A ÚLTIMA NOTA</p>
+        <p class="menu-description">Uma nota sob a terra. Um caminho de volta para casa.</p>
+        <div class="mode-buttons" aria-label="Modos de jogo">
+            <button class="game-button" id="continueStoryButton" type="button" hidden>Continuar história</button>
+            <button class="game-button" id="startButton" type="button">História · A Última Nota</button>
+            <button class="game-button secondary-button" id="endlessButton" type="button">Arenas sem fim</button>
+            <button class="game-button secondary-button" id="versusButton" type="button">Versus 1x1 · Local</button>
+        </div>
+        <p class="start-prompt">ENTER · História</p>
         <p class="asset-status" id="assetStatus" aria-live="polite">Preparando os recursos...</p>
         <fieldset class="audio-settings">
             <legend>Áudio</legend>
@@ -28,7 +36,9 @@
     </main>
 
     <section class="controls-container" id="controlsScreen" aria-labelledby="controlsTitle">
+        <p class="mode-caption" id="controlsMode">História</p>
         <h2 id="controlsTitle">Controles do Jogo</h2>
+        <div id="singlePlayerControls">
         <div class="controls-grid">
             <div class="control-item"><div class="key">W</div><div class="control-description">Pular</div></div>
             <div class="control-item"><div class="key">A</div><div class="control-description">Mover para a esquerda</div></div>
@@ -39,8 +49,34 @@
             <div class="control-item"><div class="key">Q</div><div class="control-description">Interagir com portal ou piano</div></div>
             <div class="control-item"><div class="key">ESC</div><div class="control-description">Pausar / sair do piano</div></div>
         </div>
-        <p class="controls-tip">Toque duas vezes em A ou D para correr.</p>
-        <button class="game-button" id="playButton" type="button">Jogar</button>
+        <p class="controls-tip">Toque duas vezes em A ou D para correr. Entre os duelos, ENTER avança a história e ESC pula o trecho.</p>
+        </div>
+        <div id="versusControls" hidden>
+            <div class="versus-control-columns">
+                <div class="player-control-panel">
+                    <h3>Jogador 1</h3>
+                    <p><strong>A / D</strong> · Mover</p>
+                    <p><strong>W</strong> · Pular</p>
+                    <p><strong>S</strong> · Defender</p>
+                    <p><strong>ESPAÇO</strong> · Atacar</p>
+                    <p><strong>F</strong> · Confirmar prontidão</p>
+                </div>
+                <div class="player-control-panel player-two">
+                    <h3>Jogador 2</h3>
+                    <p><strong>← / →</strong> · Mover</p>
+                    <p><strong>↑</strong> · Pular</p>
+                    <p><strong>↓</strong> · Defender</p>
+                    <p><strong>L</strong> · Atacar</p>
+                    <p><strong>ENTER</strong> · Confirmar prontidão</p>
+                </div>
+            </div>
+            <p class="controls-tip">Mesmo teclado · Melhor de 3 · 60 segundos por round · Sem poções</p>
+            <p class="controls-tip">Cada jogador confirma que está pronto antes do duelo. ESC pausa para os dois.</p>
+        </div>
+        <div class="buttons-container">
+            <button class="game-button" id="playButton" type="button">Jogar</button>
+            <button class="game-button secondary-button" id="controlsBackButton" type="button">Voltar</button>
+        </div>
         <p class="continue-prompt">Pressione ENTER para jogar</p>
     </section>
 
@@ -64,7 +100,11 @@
                 <label for="pauseEffectsVolume">Efeitos <output data-volume-output="effects">50%</output></label>
                 <input id="pauseEffectsVolume" data-volume="effects" type="range" min="0" max="100" value="50">
             </fieldset>
-            <button class="game-button" id="resumeButton" type="button">Continuar</button>
+            <div class="pause-actions">
+                <button class="game-button" id="resumeButton" type="button">Continuar</button>
+                <button class="game-button secondary-button" id="replayStoryButton" type="button" hidden>Reler este trecho</button>
+                <button class="game-button secondary-button" id="returnMenuButton" type="button">Voltar ao menu</button>
+            </div>
             <p class="controls-tip">Pressione ESC para continuar</p>
         </div>
     </section>
@@ -78,6 +118,66 @@
         <div class="loading-tip" id="loadingTip">Preparando sua jornada...</div>
         <p class="loading-error" id="loadingError" role="alert" hidden></p>
         <button class="game-button" id="reloadButton" type="button" hidden>Recarregar o jogo</button>
+    </section>
+
+    <section class="story-screen" id="storyScreen" role="dialog" aria-modal="true" aria-labelledby="storyTitle" hidden>
+        <div class="story-scene-art" id="storyArt" aria-hidden="true"></div>
+        <header class="story-film-heading">
+            <div>
+                <p class="story-chapter" id="storyChapter"></p>
+                <h2 id="storyTitle"></h2>
+            </div>
+            <p class="story-frame-counter" id="storyFrameCounter" aria-live="off">1 / 1</p>
+        </header>
+        <article class="story-panel">
+            <div class="story-copy" id="storyText" aria-live="polite" aria-atomic="true"></div>
+            <div class="story-film-progress" id="storyFrameProgress" role="progressbar" aria-label="Progresso da cena" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="storyFrameProgressFill"></span></div>
+            <div class="story-film-controls" aria-label="Controles do filme">
+                <div class="story-transport-controls">
+                    <button class="film-button" id="storyPreviousFrameButton" type="button" aria-label="Voltar um quadro">← Anterior</button>
+                    <button class="film-button film-play" id="storyPlayButton" type="button" aria-pressed="false">Pausar filme</button>
+                    <button class="film-button" id="storyNextFrameButton" type="button" aria-label="Avançar um quadro">Próximo →</button>
+                </div>
+                <div class="story-extra-controls">
+                    <button class="film-button" id="storyVoiceButton" type="button" aria-pressed="true">Voz ligada</button>
+                    <button class="film-button" id="storyReplayButton" type="button">Repetir cena</button>
+                </div>
+            </div>
+            <div class="story-actions">
+                <p class="story-film-status" id="storyFilmStatus" role="status" aria-live="polite">Preparando narração…</p>
+                <div class="story-exit-controls">
+                    <button class="game-button" id="storyContinueButton" type="button">Continuar jornada · ENTER</button>
+                    <button class="text-button" id="storySkipButton" type="button">Pular trecho · ESC</button>
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="result-screen" id="versusResultScreen" role="dialog" aria-modal="true" aria-labelledby="versusResultTitle" hidden>
+        <div class="result-panel">
+            <p class="mode-caption">VERSUS 1x1 · LOCAL</p>
+            <h2 id="versusResultTitle"></h2>
+            <p class="versus-score" id="versusResultScore"></p>
+            <p class="controls-tip" id="versusResultDescription"></p>
+            <div class="pause-actions">
+                <button class="game-button" id="versusNextButton" type="button">Próximo round</button>
+                <button class="game-button secondary-button" id="versusRematchButton" type="button">Revanche</button>
+                <button class="game-button secondary-button" id="versusMenuButton" type="button">Voltar ao menu</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="result-screen" id="campaignEndingScreen" role="dialog" aria-modal="true" aria-labelledby="campaignEndingTitle" hidden>
+        <div class="result-panel campaign-result">
+            <p class="story-chapter">A ÚLTIMA NOTA</p>
+            <h2 id="campaignEndingTitle">De volta para casa</h2>
+            <p class="ending-copy">Dessa vez, Bimu esperou.<br>E Hana deu a última nota.</p>
+            <p class="controls-tip">História concluída. A jornada dos dois continua.</p>
+            <div class="pause-actions">
+                <button class="game-button" id="campaignMenuButton" type="button">Voltar ao menu</button>
+                <button class="game-button secondary-button" id="campaignReplayButton" type="button">Reler o desfecho</button>
+            </div>
+        </div>
     </section>
 
     <div id="piano-container-wrapper" class="hidden"></div>

@@ -1,9 +1,12 @@
 import { GAME_CONFIG, SPRITE_PATHS, STAGES, ENEMY_CONFIGS, PORTAL_DIMENCIONAL, PIANO_CONFIG } from './gameConfig.js';
 import { loadImages } from './loader.js';
 import { Sprite, Fighter, FighterAI } from './sprites.js';
-import { resolveAttack } from './combat.js';
+import { resolveAttack, resolveExchange } from './combat.js';
+import { STORY_STAGES, getStoryScene, REUNION_SCENE, EPILOGUE_SCENE } from './story.js';
+import { loadStoryProgress, saveStoryProgress } from './storyProgress.js';
+import { VersusMatch } from './versus.js';
 import { SimulationClock } from './clock.js';
-import { handleControls, keys, resetKeys } from './controls.js';
+import { handleControls, keys, keys2, consumeReady, resetKeys } from './controls.js';
 import * as audioManager from './audioManager.js';
 
 const canvas = document.querySelector('canvas');
@@ -29,6 +32,7 @@ let pianoObject = null;
 let isPianoActive = false;
 let pianoModule = null;
 let pianoLoading = null;
+let pianoRequestId = 0;
 let isPaused = false;
 let isLoadingNextStage = false;
 let gameOver = false;
@@ -36,6 +40,153 @@ let musicStarted = false;
 let hitStop = 0;
 let effects = [];
 let notice = null;
+let mode = 'endless';
+let sessionId = 0;
+let storyProgress = null;
+let storySceneActive = false;
+let campaignEnding = false;
+let versus = null;
+let versusResultShown = false;
+let playerSprites;
+
+window.getStoryProgress = () => loadStoryProgress();
+window.hasStorySave = () => {
+    const progress = loadStoryProgress();
+    return Boolean(progress && !progress.completed);
+};
+
+function persistStory() {
+    if (mode !== 'story' || !storyProgress) return;
+    storyProgress = saveStoryProgress(storyProgress);
+    window.dispatchEvent(new CustomEvent('game:progresschanged'));
+}
+
+function showNarrative(scene, { onDone, replay = false } = {}) {
+    const token = sessionId;
+    let closed = false;
+    storySceneActive = true;
+    resetKeys();
+    clock.reset();
+    audioManager.pauseMusic();
+    const finish = () => {
+        if (closed || token !== sessionId) return;
+        closed = true;
+        if (!replay && storyProgress && !storyProgress.seenScenes.includes(scene.id)) {
+            storyProgress.seenScenes.push(scene.id);
+            persistStory();
+        }
+        window.hideStoryScene();
+        storySceneActive = false;
+        resetKeys();
+        clock.reset();
+        if (onDone) onDone();
+        else if (document.hidden || !document.hasFocus()) setPaused(true);
+        else audioManager.resumeMusic();
+    };
+    window.showStoryScene(scene, { onContinue: finish, onSkip: finish });
+}
+
+function showStageNarrative() {
+    if (mode !== 'story') return;
+    const scene = getStoryScene(currentStage);
+    if (!storyProgress.seenScenes.includes(scene.id)) showNarrative(scene);
+}
+
+function leaveToMenu() {
+    sessionId++;
+    pianoRequestId++;
+    window.jogoIniciado = false;
+    isPianoActive = false;
+    pianoModule?.deactivatePianoControls();
+    pianoWrapper.classList.add('hidden');
+    storySceneActive = false;
+    campaignEnding = false;
+    isPaused = false;
+    isLoadingNextStage = false;
+    gameOver = false;
+    musicStarted = false;
+    resetKeys();
+    clock.reset();
+    window.hideStoryScene();
+    window.showPauseScreen(false);
+    window.showMainMenu();
+    audioManager.playMenuMusic();
+}
+
+function completeCampaign() {
+    if (campaignEnding || mode !== 'story' || !storyProgress.melodyComplete) return;
+    campaignEnding = true;
+    const ending = () => showNarrative(REUNION_SCENE, { onDone: () => {
+        showNarrative(EPILOGUE_SCENE, { onDone: () => {
+            storyProgress.completed = true;
+            persistStory();
+            window.showCampaignEnding({ onMenu: leaveToMenu, onReplay: ending });
+        } });
+    } });
+    ending();
+}
+
+function createPlayer(position = { x: 100, y: 0 }) {
+    return new Fighter({
+        position, velocity: { x: 0, y: 0 }, scale: 2, sprites: playerSprites,
+        body: { offsetX: 22, offsetY: 62, width: 24, height: 66 },
+        attack: { range: 72 }
+    });
+}
+
+function setupVersusRound() {
+    enemy = createPlayer({ x: 780, y: 0 });
+    enemy.name = 'Jogador 2';
+    player.reset({ x: 100, y: 0 });
+    player.potions = enemy.potions = 0;
+    enemy.facing = 'left';
+    background.image = loadedImages[SPRITE_PATHS.BACKGROUND_FLORESTA];
+    stageDefinition = { background: SPRITE_PATHS.BACKGROUND_FLORESTA, versus: true };
+    pianoObject = tombstonePortal = null;
+    effects = [];
+    notice = null;
+    hitStop = 0;
+    gameOver = false;
+    isPaused = false;
+    versusResultShown = false;
+    resetKeys();
+    clock.reset();
+}
+
+function startSession({ mode: selectedMode = 'story', resume = false } = {}) {
+    sessionId++;
+    pianoRequestId++;
+    mode = ['story', 'endless', 'versus'].includes(selectedMode) ? selectedMode : 'story';
+    pianoModule?.resetPianoChallenge();
+    isPianoActive = false;
+    pianoModule?.deactivatePianoControls();
+    pianoWrapper.classList.add('hidden');
+    storySceneActive = false;
+    campaignEnding = false;
+    isLoadingNextStage = false;
+    musicStarted = false;
+    currentStage = 0;
+    if (mode === 'story') {
+        const saved = resume ? loadStoryProgress() : null;
+        storyProgress = saved && !saved.completed ? saved : {
+            version: 1, stage: 0, seenScenes: [], melodyComplete: false, completed: false
+        };
+        currentStage = storyProgress.stage;
+        persistStory();
+    } else storyProgress = null;
+    if (mode === 'versus') {
+        versus = new VersusMatch();
+        setupVersusRound();
+    } else {
+        versus = null;
+        setupStage(selectStage(currentStage));
+        audioManager.playGameMusic();
+        musicStarted = true;
+        draw();
+        showStageNarrative();
+    }
+    if ((document.hidden || !document.hasFocus()) && !storySceneActive) setPaused(true);
+}
 
 function createEnemy(enemyType) {
     const config = ENEMY_CONFIGS[enemyType];
@@ -73,6 +224,7 @@ function createPortal() {
 }
 
 function selectStage(index) {
+    if (mode === 'story') return STORY_STAGES[index];
     if ((index + 1) % 10 === 0) return { background: SPRITE_PATHS.BACKGROUND_FLORESTA, bonus: true };
     if (index < STAGES.length) return STAGES[index];
     const enemyTypes = Object.keys(ENEMY_CONFIGS);
@@ -99,7 +251,7 @@ function setupStage(definition) {
                 y: canvas.height - GAME_CONFIG.FLOOR_HEIGHT - image.height * scale
             }
         });
-        tombstonePortal = createPortal();
+        if (mode !== 'story' || storyProgress.melodyComplete) tombstonePortal = createPortal();
     }
     player.reset({ x: 100, y: 0 });
     effects = [];
@@ -112,64 +264,104 @@ function setupStage(definition) {
 }
 
 async function advanceToNextStage() {
-    if (isLoadingNextStage) return;
+    if (isLoadingNextStage || campaignEnding) return;
+    if (mode === 'story' && currentStage === STORY_STAGES.length - 1) {
+        completeCampaign();
+        return;
+    }
+    const token = sessionId;
     isLoadingNextStage = true;
     resetKeys();
     try {
         await window.showLoadingScreen(currentStage + 2, () => {
+            if (token !== sessionId) return;
             currentStage++;
+            if (mode === 'story') {
+                storyProgress.stage = currentStage;
+                persistStory();
+            }
             setupStage(selectStage(currentStage));
             canvas.classList.remove('hidden');
             canvas.style.display = 'block';
+            draw();
+            showStageNarrative();
         });
     } finally {
-        isLoadingNextStage = false;
-        clock.reset();
-        if (document.hidden || !document.hasFocus()) setPaused(true);
+        if (token === sessionId) {
+            isLoadingNextStage = false;
+            clock.reset();
+            if ((document.hidden || !document.hasFocus()) && !storySceneActive) setPaused(true);
+        }
+    }
+}
+
+async function ensurePianoLoaded() {
+    if (pianoModule) return pianoModule;
+    if (pianoLoading) return pianoLoading;
+    const pending = (async () => {
+        const response = await fetch(new URL('../piano.html', import.meta.url));
+        if (!response.ok) throw new Error('Não foi possível abrir o piano.');
+        const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const piano = doc.querySelector('.piano');
+        if (!piano) throw new Error('O piano está indisponível.');
+        const module = await import('./piano_interactive.js');
+        pianoWrapper.replaceChildren(piano);
+        module.initializeInteractivePiano(pianoWrapper, () => togglePiano(false));
+        pianoModule = module;
+        return module;
+    })();
+    pianoLoading = pending;
+    try {
+        return await pending;
+    } finally {
+        if (pianoLoading === pending) pianoLoading = null;
     }
 }
 
 async function togglePiano(show) {
-    if (show && pianoLoading) return;
+    const requestId = ++pianoRequestId;
+    const token = sessionId;
     resetKeys();
     isPianoActive = show;
     clock.reset();
     if (!show) {
         pianoModule?.deactivatePianoControls();
         pianoWrapper.classList.add('hidden');
-        if (!isPaused) audioManager.resumeMusic();
+        if (!isPaused && !storySceneActive && !campaignEnding) audioManager.resumeMusic();
         return;
     }
     audioManager.pauseMusic();
     try {
-        if (!pianoModule) {
-            pianoLoading = (async () => {
-                const response = await fetch(new URL('../piano.html', import.meta.url));
-                if (!response.ok) throw new Error('Não foi possível abrir o piano.');
-                const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
-                const piano = doc.querySelector('.piano');
-                if (!piano) throw new Error('O piano está indisponível.');
-                pianoWrapper.replaceChildren(piano);
-                pianoModule = await import('./piano_interactive.js');
-                pianoModule.initializeInteractivePiano(pianoWrapper, () => togglePiano(false));
-            })();
-            await pianoLoading;
-        }
-        if (isPaused || !isPianoActive) return;
+        const module = await ensurePianoLoaded();
+        if (token !== sessionId || requestId !== pianoRequestId || !isPianoActive) return;
+        // Configure before the pause check: a first load may finish while the tab is inactive.
+        module.configurePiano({
+            mode: mode === 'story' ? 'story' : 'free',
+            completed: Boolean(storyProgress?.melodyComplete),
+            onComplete: () => {
+                if (token !== sessionId || mode !== 'story' || currentStage !== 9 || storyProgress.melodyComplete) return;
+                storyProgress.melodyComplete = true;
+                persistStory();
+                tombstonePortal = createPortal();
+                notice = { text: 'Hana tocou a última nota. O portal leva para casa. Q · Entrar', time: 8 };
+            }
+        });
+        if (isPaused) return;
         pianoWrapper.classList.remove('hidden');
-        pianoModule.activatePianoControls();
+        module.activatePianoControls();
     } catch (error) {
+        if (token !== sessionId || requestId !== pianoRequestId) return;
         isPianoActive = false;
-        notice = { text: `${error.message} Você pode seguir pelo portal.`, time: 5 };
+        notice = { text: `${error.message} Aproxime-se do piano e pressione Q para tentar novamente.`, time: 5 };
         if (!isPaused) audioManager.resumeMusic();
     } finally {
-        pianoLoading = null;
-        clock.reset();
+        if (token === sessionId && requestId === pianoRequestId) clock.reset();
     }
 }
 
 function setPaused(value) {
-    if (!window.jogoIniciado || gameOver || isLoadingNextStage || isPaused === value) return;
+    if (!window.jogoIniciado || gameOver || isLoadingNextStage || storySceneActive || campaignEnding ||
+        versus?.state.endsWith('over') || isPaused === value) return;
     isPaused = value;
     resetKeys();
     clock.reset();
@@ -180,8 +372,10 @@ function setPaused(value) {
             pianoWrapper.classList.add('hidden');
         }
     } else if (isPianoActive) {
-        pianoWrapper.classList.remove('hidden');
-        pianoModule?.activatePianoControls();
+        if (pianoModule && !pianoLoading) {
+            pianoWrapper.classList.remove('hidden');
+            pianoModule.activatePianoControls();
+        }
     } else {
         audioManager.resumeMusic();
     }
@@ -210,8 +404,53 @@ function addImpact(result) {
     }
 }
 
+function updateVersus(dt) {
+    if (versus.state === 'round-over' || versus.state === 'match-over') return;
+    if (versus.state === 'ready') {
+        if (consumeReady(0)) versus.markReady(0);
+        if (consumeReady(1)) versus.markReady(1);
+    }
+    const wasAttacking = [player.isAttacking, enemy.isAttacking];
+    if (versus.state === 'fighting') {
+        handleControls(player, keys, { allowPotion: false });
+        handleControls(enemy, keys2, { allowPotion: false });
+    } else {
+        player.velocity.x = enemy.velocity.x = 0;
+    }
+    player.update(dt);
+    enemy.update(dt);
+    if ((!wasAttacking[0] && player.isAttacking) || (!wasAttacking[1] && enemy.isAttacking)) {
+        audioManager.playEffect('swing');
+    }
+    if (versus.state === 'fighting') {
+        for (const impact of resolveExchange(player, enemy, GAME_CONFIG.PLAYER_DAMAGE, GAME_CONFIG.PLAYER_DAMAGE)) addImpact(impact);
+    }
+    versus.update(dt, player, enemy);
+    if (versus.result && !versusResultShown) {
+        versusResultShown = true;
+        resetKeys();
+        audioManager.pauseMusic();
+        const token = sessionId;
+        const restart = rematch => {
+            if (token !== sessionId) return;
+            if (rematch) versus.rematch();
+            else versus.nextRound();
+            setupVersusRound();
+            audioManager.resumeMusic();
+        };
+        window.showVersusResult({
+            winner: versus.result.winner === null ? null : `Jogador ${versus.result.winner + 1}`,
+            scores: versus.scores,
+            matchOver: versus.result.matchOver,
+            onRematch: () => restart(true),
+            onNextRound: () => restart(false),
+            onMenu: leaveToMenu
+        });
+    }
+}
+
 function update(dt) {
-    if (isPaused || isLoadingNextStage || isPianoActive || gameOver) return;
+    if (isPaused || isLoadingNextStage || isPianoActive || storySceneActive || campaignEnding || gameOver) return;
     for (const effect of effects) {
         effect.x += effect.vx * dt;
         effect.y += effect.vy * dt;
@@ -224,6 +463,10 @@ function update(dt) {
     }
     if (hitStop > 0) {
         hitStop -= dt;
+        return;
+    }
+    if (mode === 'versus') {
+        updateVersus(dt);
         return;
     }
     const playerWasAttacking = player.isAttacking;
@@ -281,26 +524,34 @@ function draw() {
     pianoObject?.draw(ctx);
     tombstonePortal?.draw(ctx);
     player.draw(ctx);
+    ctx.save();
+    if (mode === 'versus') ctx.filter = 'hue-rotate(150deg)';
     enemy?.draw(ctx);
+    ctx.restore();
     for (const effect of effects) {
         ctx.globalAlpha = effect.life / 0.25;
         ctx.fillStyle = effect.color;
         ctx.fillRect(effect.x, effect.y, 4, 4);
     }
     ctx.globalAlpha = 1;
-    drawBar(24, 47, 275, player, 'BIMU');
+    drawBar(24, 47, 275, player, mode === 'versus' ? 'JOGADOR 1 · BIMU' : 'BIMU');
     if (enemy) drawBar(canvas.width - 299, 47, 275, enemy, enemy.name);
     ctx.textAlign = 'center';
     ctx.font = 'bold 18px Arial';
     ctx.fillStyle = '#fff';
-    ctx.fillText(`FASE ${currentStage + 1}`, canvas.width / 2, 34);
+    ctx.fillText(mode === 'versus' ? `${Math.ceil(versus.timeLeft)}s` : `FASE ${currentStage + 1}`, canvas.width / 2, 34);
     ctx.font = '14px Arial';
-    ctx.fillText(stageDefinition.bonus ? 'Um momento de descanso' : 'A Jornada do Samurai', canvas.width / 2, 56);
+    ctx.fillText(mode === 'versus' ? `ROUND ${versus.round} · ${versus.scores[0]} × ${versus.scores[1]}` :
+        stageDefinition.bonus ? 'Um momento de descanso' : mode === 'story' ? 'A Última Nota' : 'Arenas sem fim', canvas.width / 2, 56);
     ctx.textAlign = 'left';
-    ctx.fillText(`E · Poções: ${player.potions}`, 24, 96);
+    ctx.fillText(mode === 'versus' ? 'WASD · Espaço para atacar' : `E · Poções: ${player.potions}`, 24, 96);
     ctx.textAlign = 'right';
-    ctx.fillText('Esc · Pausar', canvas.width - 24, 96);
-    const prompt = notice?.text || (isNear(tombstonePortal) ? 'Q · Entrar no portal' :
+    ctx.fillText(mode === 'versus' ? 'Setas · L para atacar · Esc para pausar' : 'Esc · Pausar', canvas.width - 24, 96);
+    const versusPrompt = mode === 'versus' && versus.state === 'ready'
+        ? `J1: ${versus.ready[0] ? 'pronto' : 'F para ficar pronto'} · J2: ${versus.ready[1] ? 'pronto' : 'Enter para ficar pronto'}`
+        : mode === 'versus' && versus.state === 'countdown' ? `Preparem-se! ${Math.ceil(versus.countdown)}` : null;
+    const prompt = versusPrompt || notice?.text || (isNear(tombstonePortal) ?
+        mode === 'story' && currentStage === 9 ? 'Q · Voltar para Hana' : 'Q · Entrar no portal' :
         isNear(pianoObject) ? 'Q · Tocar piano' : enemy?.dead ? 'Vitória! Siga até o portal.' : null);
     if (prompt) {
         ctx.font = 'bold 18px Arial';
@@ -315,7 +566,7 @@ function draw() {
 
 function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
-    if (!window.jogoIniciado || isPaused || isLoadingNextStage || isPianoActive) {
+    if (!window.jogoIniciado || isPaused || isLoadingNextStage || isPianoActive || storySceneActive || campaignEnding) {
         clock.reset();
         return;
     }
@@ -348,11 +599,8 @@ async function main() {
     for (const [key, [image, totalSpriteFrames, framesPerSpriteFrame]] of Object.entries(definitions)) {
         sprites[key] = { image: loadedImages[SPRITE_PATHS.PLAYER[image]], totalSpriteFrames, framesPerSpriteFrame };
     }
-    player = new Fighter({
-        position: { x: 100, y: 0 }, velocity: { x: 0, y: 0 }, scale: 2, sprites,
-        body: { offsetX: 22, offsetY: 62, width: 24, height: 66 },
-        attack: { range: 72 }
-    });
+    playerSprites = sprites;
+    player = createPlayer();
     background = new Sprite({ position: { x: 0, y: 0 }, image: loadedImages[SPRITE_PATHS.BACKGROUND_FLORESTA] });
     setupStage(selectStage(0));
     requestAnimationFrame(gameLoop);
@@ -363,20 +611,26 @@ window.startMenuMusic = () => {
     audioManager.playMenuMusic();
 };
 window.addEventListener('game:resume', () => setPaused(false));
-window.addEventListener('game:start', () => {
-    if (document.hidden || !document.hasFocus()) setPaused(true);
+window.addEventListener('game:start', event => startSession(event.detail));
+window.addEventListener('game:menu', leaveToMenu);
+window.addEventListener('game:replay-story', () => {
+    if (mode !== 'story' || !isPaused || campaignEnding) return;
+    isPaused = false;
+    window.showPauseScreen(false);
+    showNarrative(getStoryScene(currentStage), { replay: true, onDone: () => setPaused(true) });
 });
 window.addEventListener('game:retry', () => {
-    if (!gameOver || isLoadingNextStage) return;
+    if (!gameOver || isLoadingNextStage || mode === 'versus') return;
     setupStage(stageDefinition);
     document.getElementById('gameOverScreen').style.display = 'none';
     canvas.classList.remove('hidden');
     canvas.style.display = 'block';
     audioManager.unlockAudio();
     audioManager.playGameMusic();
+    if (mode === 'story') showStageNarrative();
 });
 window.addEventListener('keydown', event => {
-    if (event.key !== 'Escape' || event.repeat) return;
+    if (event.key !== 'Escape' || event.repeat || storySceneActive || campaignEnding) return;
     event.preventDefault();
     if (isPianoActive && !isPaused) {
         togglePiano(false);
