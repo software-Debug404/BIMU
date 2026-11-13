@@ -1,0 +1,14 @@
+# Quadros adicionais da história
+
+Imagens criadas com a ferramenta integrada `image_gen`, inspecionadas e copiadas para esta pasta. Os originais foram preservados. Os prompts da edição do corte e dos demais quadros estão em [MORE-FRAMES.md](MORE-FRAMES.md).
+
+## first-note.png
+
+- Arquivo do projeto: `assets/story/first-note.png`.
+- Original preservado: `/Users/kauan/.codex/generated_images/01a1d610-010c-7020-81f7-832f505d9531/exec-91745187-9731-40d1-aa2d-0575417555e3.png`.
+
+Use case: illustration-story. Asset for BIMU, a 2D samurai adventure. Single wide landscape 16:9 frame. Detailed coherent 16-bit pixel-art illustration, deliberate crisp pixel clusters, no photorealism or soft painterly blur, no captions, no lettering, no UI, no watermarks. Bimu is a young adult samurai wearing dark navy/black armor with muted gold edging and a long deep-blue scarf, katana and topknot. His sister Hana is a young woman with dark tied-back hair and a modest cream kimono. Palette: cool forest blues and deep greens contrasted with warm amber portal light. Keep the visual continuity of an illustrated adventure game. Scene: night immediately after a house vanished into a deep crater at the edge of a Japanese forest. Bimu kneels at the broken wooden threshold at the lip of the crater, reaching into the darkness and calling for his lost sister. Very far below, a tiny warm glowing point hints at the piano's first note, represented by light only, no musical symbols. Splintered floorboards and a small teacup near the edge; full moon through trees. No Hana visible, no injuries or gore. Emphasize loss and mystery, Bimu at center-left, the deep opening at center-right.
+
+## blue-graves.png
+
+Use case: illustration-story. Asset for BIMU, a 2D samurai adventure. Single wide landscape 16:9 frame. Detailed coherent 16-bit pixel-art illustration, deliberate crisp pixel clusters, no photorealism or soft painterly blur, no captions, no lettering, no UI, no watermarks. Bimu is a young adult samurai wearing dark navy/black armor with muted gold edging and a long deep-blue scarf, katana and topknot. His sister Hana is a young woman with dark tied-back hair and a modest cream kimono. Palette: cool forest blues and deep greens contrasted with warm amber portal light. Keep the visual continuity of an illustrated adventure game. Scene: Bimu reaches a mysterious forest clearing full of small blue glowing gravestones. A broad horned minotaur holding a heavy axe stands before a closed ruined stone gateway, guarding the passage. Bimu stands in the foreground with his sheathed katana, preparing to face the guardian. Moon overhead, bioluminescent blue markers among mossy tree roots, faint mist. The minotaur is a threatening mythic creature, no blood, no fighting yet. Clear wide establishing shot showing both opponents and blue gravestones.

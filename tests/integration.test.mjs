@@ -550,6 +550,81 @@ try {
         release('d'); release('ArrowLeft');
     });
 
+    function simulateUntil(condition, message, limit = 1200) {
+        for (let i = 0; i < limit && !condition(); i++) frames(1);
+        assert(condition(), message);
+    }
+    const trainingLesson = prefix => textDrawn.some(text => text.startsWith(prefix));
+    let saveBeforeTraining;
+
+    await check('Treino inicia separado da campanha e avança movimento e ataque por teclas reais', async () => {
+        leaveUsingPause();
+        saveBeforeTraining = storage.get('bimu:story:v1');
+        await launchMode('trainingButton');
+        assert(trainingLesson('1 ·'), 'O treino deve começar na primeira instrução');
+        assert(secondPlayer().name === 'Parceiro de treino', 'Treino precisa de um parceiro próprio');
+        assert(!(secondPlayer() instanceof FighterAI), 'As tentativas devem ser guiadas, sem IA aleatória');
+        const before = player().position.x;
+        frames(120);
+        assert(trainingLesson('1 ·'), 'A lição não pode avançar apenas pelo tempo');
+        equal(player().position.x, before, 'O jogador parado permanece na posição inicial');
+        press('d');
+        simulateUntil(() => trainingLesson('2 ·'), 'Caminhar pelo teclado deve concluir a primeira lição', 120);
+        release('d');
+        frames(40); // A transição da lição prepara a distância do golpe.
+        assert(player().position.x > before, 'O movimento deve ter sido aplicado pelo controle');
+        press(' '); frames(1); release(' ');
+        simulateUntil(() => trainingLesson('3 ·'), 'Um ataque conectado deve avançar para a defesa', 180);
+        assert(textDrawn.some(text => text.startsWith('Postura ')), 'O treino deve mostrar a barra de postura');
+        equal(player().potions, 0, 'Treino não precisa gastar poções');
+        equal(storage.get('bimu:story:v1'), saveBeforeTraining, 'O treino não pode alterar o save da campanha');
+    });
+
+    await check('Treino conclui bloqueio, quebra de guarda, parry e contra-ataque por contatos do combate', () => {
+        frames(40);
+        press('s');
+        simulateUntil(() => trainingLesson('4 ·'), 'Segurar S antes do ataque deve contar como bloqueio');
+        assert(player().posture < player().maxPosture, 'O bloqueio precisa gastar postura real');
+        // A guarda continua pressionada: os golpes reais seguintes devem quebrá-la.
+        simulateUntil(() => trainingLesson('5 ·'), 'Receber bloqueios sucessivos deve quebrar a guarda', 1200);
+        assert(player().guardBreakTime > 0, 'A quebra de guarda deve aplicar atordoamento');
+        release('s');
+        frames(90); // Esperar o atordoamento e a preparação da etapa seguinte.
+        simulateUntil(() => textDrawn.includes('AGORA · S'), 'O parceiro precisa anunciar a janela de defesa');
+        press('s');
+        simulateUntil(() => trainingLesson('6 ·'), 'Defesa no momento anunciado deve produzir um parry', 120);
+        assert(player().counterWindow > 0, 'O parry precisa conceder uma abertura real');
+        assert(secondPlayer().staggerTime > 0, 'O parceiro precisa ficar desequilibrado');
+        release('s');
+        frames(40);
+        simulateUntil(() => textDrawn.includes('AGORA · S'), 'O contra-ataque exige um novo parry');
+        press('s');
+        simulateUntil(() => player().counterWindow > 0 && secondPlayer().staggerTime > 0,
+            'O segundo parry precisa abrir a janela de contra-ataque', 120);
+        release('s');
+        press(' '); frames(1); release(' ');
+        simulateUntil(() => !document.getElementById('trainingCompleteScreen').hidden,
+            'Acertar durante a abertura deve concluir o treino', 180);
+        assert(player().health > 0 && secondPlayer().health > 0, 'O treino deve permanecer seguro para repetir as ações');
+        assert(document.getElementById('gameOverScreen').style.display !== 'flex', 'Treino não deve terminar em game over');
+        equal(storage.get('bimu:story:v1'), saveBeforeTraining, 'Conclusão do treino não pode marcar a campanha');
+    });
+
+    await check('Treino pode ser repetido e encerrado pelo menu sem carregar controles ou progresso antigo', () => {
+        click('trainingRetryButton'); frames(3);
+        assert(document.getElementById('trainingCompleteScreen').hidden, 'Repetir deve fechar a conclusão');
+        assert(trainingLesson('1 ·'), 'Repetir deve voltar à primeira etapa');
+        equal(player().posture, player().maxPosture, 'Repetir restaura postura');
+        equal(player().counterWindow, 0, 'Repetir não preserva a abertura anterior');
+        equal(player().guardBreakTime, 0, 'Repetir não preserva guarda quebrada');
+        const x = player().position.x;
+        frames(10);
+        equal(player().position.x, x, 'A última tecla de ataque não pode mover ou avançar a nova tentativa');
+        leaveUsingPause();
+        equal(storage.get('bimu:story:v1'), saveBeforeTraining, 'Voltar ao menu preserva o save da campanha');
+        assert(document.getElementById('mainMenu').style.display !== 'none', 'O menu precisa permanecer utilizável');
+    });
+
     console.log(`\n${outcomes.length}/${outcomes.length} cenários de integração passaram.`);
 } catch (error) {
     console.error(`FAIL após ${outcomes.length} cenários: ${error.stack}`);

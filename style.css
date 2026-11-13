@@ -776,3 +776,52 @@ canvas {
   .story-scene-art { animation: none !important; }
   .story-film-progress span { transition: none; }
 }
+
+/* A practice run uses the same controls as the campaign and keeps its progress separate. */
+.mode-buttons .training-button {
+  grid-column: 1 / -1;
+  color: #f3deb0;
+  background: #29291f;
+  border: 1px solid #958555;
+  box-shadow: 0 4px 0 #15170f;
+}
+
+.combat-guide {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid #b69b62;
+  background: #b69b6210;
+  color: #e3dccb;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  text-align: left;
+}
+
+.practice-briefing {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #656c63;
+  background: #151d1d;
+  color: #d8e2d8;
+  text-align: left;
+}
+
+.practice-briefing h3 {
+  margin: 0 0 0.65rem;
+  color: #f0d7a4;
+  font-size: 1rem;
+}
+
+.practice-briefing p,
+.training-reminder {
+  margin: 0.6rem 0;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.training-reminder { color: #e8d4a9; }
+
+@media (max-width: 540px) {
+  .combat-guide { padding: 0.65rem; font-size: 0.8rem; }
+  .practice-briefing { padding: 0.75rem; }
+}

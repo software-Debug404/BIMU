@@ -10,10 +10,31 @@ export const GAME_CONFIG = {
     SIMULATION_STEP: 1 / 60,
     MAX_FRAME_TIME: 0.1,
     HIT_STOP_DURATION: 0.055,
+    ATTACK_INPUT_BUFFER: 0.16,
+
+    // Initial combat balance; all durations below are simulation seconds.
+    POSTURE_MAX: 100,
+    BLOCK_POSTURE_COST: 32,
+    POSTURE_REGEN_RATE: 24,
+    POSTURE_REGEN_DELAY: 0.8,
+    GUARD_BREAK_DURATION: 0.9,
+    PARRY_WINDOW: 0.16,
+    PARRY_COOLDOWN: 0.45,
+    PARRY_STAGGER_DURATION: 0.5,
+    COUNTER_WINDOW: 0.8,
+    COUNTER_DAMAGE_MULTIPLIER: 1.5,
 
     PLAYER_HEAL_AMOUNT: 20, 
     DOUBLE_TAP_WINDOW: 250, 
     COMBO_ATTACK_WINDOW: 700, 
+};
+
+// Human fighters share these profiles in campaign, training and local versus.
+// Enemies opt out so sprite variety does not silently alter their current balance.
+export const PLAYER_ATTACK_PROFILES = {
+    attacking_1: { damageMultiplier: 1, range: 72, recovery: 0 },
+    attacking_2: { damageMultiplier: 1.25, range: 76, recovery: 0.06 },
+    attacking_3: { damageMultiplier: 1.7, range: 86, recovery: 0.18 }
 };
 
 export const SPRITE_PATHS = {

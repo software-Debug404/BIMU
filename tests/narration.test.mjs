@@ -61,10 +61,14 @@ test('As cenas oferecem um frame por parágrafo e imagens correspondentes', () =
         });
     }
     const opening = getStoryScene(0);
-    assert.match(opening.frames[0].image, /Floresta\.PNG$/);
+    assert.match(opening.frames[0].image, /first-note\.png$/);
+    assert.equal(new Set(opening.frames.map(frame => frame.image)).size, 3, 'A abertura precisa mostrar três imagens diferentes.');
     assert.match(opening.frames[1].image, /opening\.png$/);
-    assert.match(getStoryScene(1).frames[0].image, /Floresta\.PNG$/);
-    assert.match(getStoryScene(2).frames[0].image, /marked-tree\.png$/);
+    assert.match(opening.frames[2].image, /blue-graves\.png$/);
+    assert.match(getStoryScene(1).frames[0].image, /fresh-cut\.png$/);
+    assert.match(getStoryScene(2).frames[0].image, /forest-return\.png$/);
+    assert.match(getStoryScene(2).frames[1].image, /marked-tree\.png$/);
+    assert.ok(getStoryScene(1).frames.every(frame => !frame.image.endsWith('/marked-tree.png')), 'O musgo deve aparecer apenas depois do retorno.');
     assert.match(REUNION_SCENE.frames[0].image, /piano-clearing\.png$/);
     assert.match(REUNION_SCENE.frames[1].image, /reunion\.png$/);
     assert.match(EPILOGUE_SCENE.frames[0].image, /reunion\.png$/);

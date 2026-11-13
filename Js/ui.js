@@ -17,6 +17,7 @@ const storyScreen = document.getElementById('storyScreen');
 const storyText = document.getElementById('storyText');
 const versusResultScreen = document.getElementById('versusResultScreen');
 const campaignEndingScreen = document.getElementById('campaignEndingScreen');
+const trainingCompleteScreen = document.getElementById('trainingCompleteScreen');
 const audioReady = import(new URL('./Js/audioManager.js', document.baseURI).href);
 let audio;
 let screen = 'menu';
@@ -29,6 +30,7 @@ let resumeStory = false;
 let storyCallbacks = {};
 let versusCallbacks = {};
 let endingCallbacks = {};
+let trainingCallbacks = {};
 let storyFilm = null;
 let storyFilmToken = 0;
 let storyFrames = [];
@@ -95,13 +97,14 @@ window.addEventListener('game:progresschanged', refreshStoryProgress);
 window.addEventListener('load', refreshStoryProgress);
 
 function startGame(options = {}) {
-    if (['story', 'endless', 'versus'].includes(options.mode)) selectedMode = options.mode;
+    if (['story', 'endless', 'versus', 'practice'].includes(options.mode)) selectedMode = options.mode;
     if (typeof options.resume === 'boolean') resumeStory = options.resume;
     document.activeElement?.blur();
     hideScreens();
     hideStoryScene();
     versusResultScreen.hidden = true;
     campaignEndingScreen.hidden = true;
+    trainingCompleteScreen.hidden = true;
     overlay.style.display = 'none';
     document.body.classList.add('is-playing');
     canvas.classList.remove('hidden');
@@ -119,6 +122,7 @@ function showMainMenu() {
     pauseScreen.hidden = true;
     versusResultScreen.hidden = true;
     campaignEndingScreen.hidden = true;
+    trainingCompleteScreen.hidden = true;
     document.getElementById('piano-container-wrapper').classList.add('hidden');
     canvas.classList.add('hidden');
     canvas.style.display = 'none';
@@ -154,6 +158,7 @@ function showLoadError(error) {
     showPauseScreen(false);
     versusResultScreen.hidden = true;
     campaignEndingScreen.hidden = true;
+    trainingCompleteScreen.hidden = true;
     canvas.classList.add('hidden');
     canvas.style.display = 'none';
     loadingScreen.style.display = 'flex';
@@ -434,6 +439,18 @@ function showCampaignEnding(callbacks = {}) {
     document.getElementById('campaignMenuButton').focus();
 }
 
+function showTrainingComplete(callbacks = {}) {
+    showPauseScreen(false);
+    hideStoryScene();
+    versusResultScreen.hidden = true;
+    campaignEndingScreen.hidden = true;
+    trainingCallbacks = callbacks;
+    trainingCompleteScreen.hidden = false;
+    screen = 'training-result';
+    document.activeElement?.blur();
+    document.getElementById('trainingRetryButton').focus();
+}
+
 function goToMenu() {
     unlockAudio();
     window.dispatchEvent(new CustomEvent('game:menu'));
@@ -447,11 +464,13 @@ function showControls(mode = 'story', resume = false) {
     audioReady.then(module => module.playMenuMusic()).catch(() => {});
     hideScreens();
     const versus = mode === 'versus';
+    const practice = mode === 'practice';
     document.getElementById('singlePlayerControls').hidden = versus;
     document.getElementById('versusControls').hidden = !versus;
-    document.getElementById('controlsMode').textContent = versus ? 'VERSUS 1x1 · LOCAL' : mode === 'story' ? 'HISTÓRIA · A ÚLTIMA NOTA' : 'ARENAS SEM FIM';
-    document.getElementById('controlsTitle').textContent = versus ? 'Dois jogadores. Um duelo.' : resume ? 'Continuar a jornada' : 'Prepare sua jornada';
-    document.getElementById('playButton').textContent = versus ? 'Preparar duelo' : resume ? 'Continuar história' : 'Jogar';
+    document.getElementById('practiceBriefing').hidden = !practice;
+    document.getElementById('controlsMode').textContent = versus ? 'VERSUS 1x1 · LOCAL' : practice ? 'TREINO · DEFESA E PARRY' : mode === 'story' ? 'HISTÓRIA · A ÚLTIMA NOTA' : 'ARENAS SEM FIM';
+    document.getElementById('controlsTitle').textContent = versus ? 'Dois jogadores. Um duelo.' : practice ? 'Domine a defesa' : resume ? 'Continuar a jornada' : 'Prepare sua jornada';
+    document.getElementById('playButton').textContent = versus ? 'Preparar duelo' : practice ? 'Entrar no treino' : resume ? 'Continuar história' : 'Jogar';
     screen = 'controls';
     controlsScreen.style.display = 'block';
     document.getElementById('playButton').focus();
@@ -472,6 +491,7 @@ document.getElementById('startButton').addEventListener('click', () => showContr
 document.getElementById('continueStoryButton').addEventListener('click', () => showControls('story', true));
 document.getElementById('endlessButton').addEventListener('click', () => showControls('endless'));
 document.getElementById('versusButton').addEventListener('click', () => showControls('versus'));
+document.getElementById('trainingButton').addEventListener('click', () => showControls('practice'));
 document.getElementById('controlsBackButton').addEventListener('click', showMainMenu);
 document.getElementById('playButton').addEventListener('click', requestPlay);
 document.getElementById('restartButton').addEventListener('click', goToMenu);
@@ -549,7 +569,23 @@ document.getElementById('campaignMenuButton').addEventListener('click', () => {
 document.getElementById('campaignReplayButton').addEventListener('click', () => {
     const callback = endingCallbacks.onReplay;
     campaignEndingScreen.hidden = true;
+    trainingCompleteScreen.hidden = true;
     callback?.();
+});
+
+document.getElementById('trainingRetryButton').addEventListener('click', () => {
+    if (trainingCompleteScreen.hidden) return;
+    const callback = trainingCallbacks.onRetry;
+    trainingCompleteScreen.hidden = true;
+    screen = 'playing';
+    document.activeElement?.blur();
+    unlockAudio();
+    callback?.();
+});
+document.getElementById('trainingMenuButton').addEventListener('click', () => {
+    if (trainingCompleteScreen.hidden) return;
+    if (trainingCallbacks.onMenu) trainingCallbacks.onMenu();
+    else goToMenu();
 });
 
 function activeDialog() {
@@ -557,6 +593,7 @@ function activeDialog() {
     if (!storyScreen.hidden) return storyScreen;
     if (!versusResultScreen.hidden) return versusResultScreen;
     if (!campaignEndingScreen.hidden) return campaignEndingScreen;
+    if (!trainingCompleteScreen.hidden) return trainingCompleteScreen;
     return null;
 }
 
@@ -631,7 +668,7 @@ function createLeaves() {
 Object.assign(window, {
     startGame, showMainMenu, showLoadingScreen, setLoadingProgress, showLoadError,
     showGameOverScreen, showPauseScreen, showStoryScene, hideStoryScene,
-    showVersusResult, showCampaignEnding, refreshStoryProgress
+    showVersusResult, showCampaignEnding, showTrainingComplete, refreshStoryProgress
 });
 createLeaves();
 refreshStoryProgress();

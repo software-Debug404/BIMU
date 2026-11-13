@@ -119,17 +119,17 @@ export function unlockAudio() {
 }
 
 export function playEffect(type) {
-    if (!['swing', 'hit', 'block'].includes(type) || volumes.effects === 0) return;
+    if (!['swing', 'hit', 'block', 'parried', 'guard-break', 'counter'].includes(type) || volumes.effects === 0) return;
     unlockAudio();
     if (!audioContext || audioContext.state !== 'running') return;
 
     const now = audioContext.currentTime;
-    const duration = type === 'swing' ? 0.12 : 0.09;
+    const duration = type === 'guard-break' ? 0.18 : type === 'parried' ? 0.14 : type === 'swing' ? 0.12 : 0.09;
     const oscillator = audioContext.createOscillator();
     const envelope = audioContext.createGain();
-    oscillator.type = type === 'block' ? 'square' : 'triangle';
-    oscillator.frequency.setValueAtTime(type === 'block' ? 1200 : type === 'hit' ? 160 : 500, now);
-    oscillator.frequency.exponentialRampToValueAtTime(type === 'block' ? 480 : 45, now + duration);
+    oscillator.type = type === 'parried' ? 'sine' : type === 'guard-break' ? 'sawtooth' : type === 'block' ? 'square' : 'triangle';
+    oscillator.frequency.setValueAtTime(type === 'parried' ? 1500 : type === 'guard-break' ? 280 : type === 'counter' ? 240 : type === 'block' ? 1200 : type === 'hit' ? 160 : 500, now);
+    oscillator.frequency.exponentialRampToValueAtTime(type === 'parried' ? 2200 : type === 'block' ? 480 : 45, now + duration);
     envelope.gain.setValueAtTime(0.0001, now);
     envelope.gain.exponentialRampToValueAtTime(type === 'swing' ? 0.12 : 0.22, now + 0.005);
     envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration);

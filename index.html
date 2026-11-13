@@ -23,6 +23,7 @@
             <button class="game-button" id="startButton" type="button">História · A Última Nota</button>
             <button class="game-button secondary-button" id="endlessButton" type="button">Arenas sem fim</button>
             <button class="game-button secondary-button" id="versusButton" type="button">Versus 1x1 · Local</button>
+            <button class="game-button training-button" id="trainingButton" type="button">Treino · Defesa e parry</button>
         </div>
         <p class="start-prompt">ENTER · História</p>
         <p class="asset-status" id="assetStatus" aria-live="polite">Preparando os recursos...</p>
@@ -43,7 +44,7 @@
             <div class="control-item"><div class="key">W</div><div class="control-description">Pular</div></div>
             <div class="control-item"><div class="key">A</div><div class="control-description">Mover para a esquerda</div></div>
             <div class="control-item"><div class="key">D</div><div class="control-description">Mover para a direita</div></div>
-            <div class="control-item"><div class="key">S</div><div class="control-description">Proteger</div></div>
+            <div class="control-item"><div class="key">S</div><div class="control-description">Defender / parry</div></div>
             <div class="control-item"><div class="key">E</div><div class="control-description">Usar poção</div></div>
             <div class="control-item"><div class="key key-space">ESPAÇO</div><div class="control-description">Atacar</div></div>
             <div class="control-item"><div class="key">Q</div><div class="control-description">Interagir com portal ou piano</div></div>
@@ -72,6 +73,12 @@
             </div>
             <p class="controls-tip">Mesmo teclado · Melhor de 3 · 60 segundos por round · Sem poções</p>
             <p class="controls-tip">Cada jogador confirma que está pronto antes do duelo. ESC pausa para os dois.</p>
+        </div>
+        <p class="combat-guide">Defenda de frente. Segurar S (↓ no Jogador 2) bloqueia, mas gasta postura; solte para recuperar. Defenda no instante do impacto para fazer um parry e ganhar uma abertura para contra-atacar. O terceiro golpe do combo alcança mais longe e causa mais dano, mas demora mais para terminar.</p>
+        <div class="practice-briefing" id="practiceBriefing" hidden>
+            <h3>Aprenda fazendo</h3>
+            <p>O parceiro espera você cumprir cada exercício: movimentação, golpe, bloqueio, quebra de guarda, parry e contra-ataque.</p>
+            <p>A vida e a postura são repostas entre os exercícios. Você pode repetir o treino ou sair pela pausa.</p>
         </div>
         <div class="buttons-container">
             <button class="game-button" id="playButton" type="button">Jogar</button>
@@ -176,6 +183,19 @@
             <div class="pause-actions">
                 <button class="game-button" id="campaignMenuButton" type="button">Voltar ao menu</button>
                 <button class="game-button secondary-button" id="campaignReplayButton" type="button">Reler o desfecho</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="result-screen" id="trainingCompleteScreen" role="dialog" aria-modal="true" aria-labelledby="trainingCompleteTitle" hidden>
+        <div class="result-panel training-result">
+            <p class="mode-caption">TREINO · DEFESA E PARRY</p>
+            <h2 id="trainingCompleteTitle">Pronto para o próximo duelo</h2>
+            <p class="controls-tip">Você praticou distância, ataque, bloqueio, limite da postura, parry e contra-ataque.</p>
+            <p class="training-reminder">Defenda de frente, cuide da postura e aproveite a abertura depois de aparar.</p>
+            <div class="pause-actions">
+                <button class="game-button" id="trainingRetryButton" type="button">Praticar outra vez</button>
+                <button class="game-button secondary-button" id="trainingMenuButton" type="button">Voltar ao menu</button>
             </div>
         </div>
     </section>

@@ -5,7 +5,22 @@ const desert = SPRITE_PATHS.BACKGROUND_DESERTO;
 const underworld = SPRITE_PATHS.BACKGROUND_SUBMUNDO;
 const sceneBackground = path => new URL(path, import.meta.url).href;
 const storyArt = name => new URL(`../assets/story/${name}.png`, import.meta.url).href;
-const sceneArt = { 0: 'opening', 2: 'marked-tree', 3: 'commander', 9: 'piano-clearing' };
+const sceneArt = {
+    0: 'first-note', 1: 'desert-ruins', 2: 'forest-return', 3: 'commander',
+    4: 'lost-portals', 5: 'forest-return', 7: 'lost-portals', 8: 'forest-return', 9: 'piano-clearing'
+};
+// The opening now tells its three events with three distinct illustrations.
+// The fresh cut precedes the moss-covered return, preserving the time mystery.
+const frameArt = {
+    0: ['first-note', 'opening', 'blue-graves'],
+    1: ['fresh-cut', 'blue-graves', 'desert-ruins'],
+    2: ['forest-return', 'marked-tree', 'marked-tree'],
+    4: ['commander', 'lost-portals'],
+    5: ['forest-return', 'lost-portals'],
+    6: [null, 'lost-portals'],
+    7: ['lost-portals', 'marked-tree'],
+    8: ['forest-return', 'lost-portals']
+};
 
 function withFrames(scene, images) {
     return { ...scene, frames: scene.paragraphs.map((text, index) => ({
@@ -109,8 +124,7 @@ export function getStoryScene(index) {
     if (!Number.isInteger(index) || index < 0 || index >= scenes.length) return null;
     const scene = { ...scenes[index], background: sceneBackground(scenes[index].background) };
     if (sceneArt[index]) scene.art = storyArt(sceneArt[index]);
-    const images = index === 0 ? [scene.background, scene.art, scene.background]
-        : index === 1 ? [sceneBackground(forest), sceneBackground(forest), scene.background] : null;
+    const images = frameArt[index]?.map(name => name ? storyArt(name) : scene.background);
     return withFrames(scene, images);
 }
 

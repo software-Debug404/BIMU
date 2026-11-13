@@ -1,3 +1,5 @@
+import { GAME_CONFIG } from './gameConfig.js';
+
 function collectContact(attacker, defender, damage) {
     if (!attacker || !defender || attacker === defender || attacker.dead || defender.dead ||
         !attacker.isAttackActive || attacker.hasDealtDamage) return null;
@@ -9,16 +11,24 @@ function collectContact(attacker, defender, damage) {
     const top = Math.max(attack.position.y, body.position.y);
     const bottom = Math.min(attack.position.y + attack.height, body.position.y + body.height);
     if (left >= right || top >= bottom) return null;
-    return { attacker, defender, damage, x: (left + right) / 2, y: (top + bottom) / 2 };
+    // Snapshot power, counter and reaction before either fighter can be interrupted.
+    const isCounter = attacker.counterWindow > 0;
+    const multiplier = (attacker.attackDamageMultiplier ?? 1) *
+        (isCounter ? GAME_CONFIG.COUNTER_DAMAGE_MULTIPLIER : 1);
+    const finalDamage = Math.round(damage * multiplier);
+    const reaction = defender.previewDamage(finalDamage, attacker);
+    return { attacker, defender, damage: finalDamage, reaction, isCounter,
+        x: (left + right) / 2, y: (top + bottom) / 2 };
 }
 
 function applyContact(contact) {
     if (!contact) return null;
-    const { attacker, defender, damage, x, y } = contact;
-    const type = defender.takeDamage(damage, attacker);
-    if (type !== 'hit' && type !== 'blocked') return null;
+    const { attacker, defender, damage, reaction, isCounter, x, y } = contact;
+    const type = defender.takeDamage(damage, attacker, reaction);
+    if (!['hit', 'blocked', 'parried', 'guard-break'].includes(type)) return null;
     attacker.hasDealtDamage = true;
-    return { type, x, y, attacker, defender };
+    if (isCounter && type !== 'parried') attacker.counterWindow = 0;
+    return { type, x, y, attacker, defender, isCounter, damage };
 }
 
 /** Resolve one attack only while its impact frames overlap the defender's body. */

@@ -206,7 +206,10 @@ test('Bloquear preserva a vida e consome o contato daquele ataque', () => {
     const defender = fighter();
     activeAttack(attacker);
     placeInAttack(attacker, defender);
+    defender.facing = 'left';
     defender.protect();
+    updateFor(defender, 0.2); // Manter a guarda além da janela de parry.
+    placeInAttack(attacker, defender);
     equal(resolveAttack(attacker, defender, 10)?.type, 'blocked');
     equal(defender.health, 100);
     defender.stopProtecting();

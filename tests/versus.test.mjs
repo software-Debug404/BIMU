@@ -49,7 +49,7 @@ eventWindow.jogoIniciado = true;
 eventDocument.hidden = false;
 globalThis.window = eventWindow;
 globalThis.document = eventDocument;
-const { keys, keys2, resetKeys, consumeReady, handleControls } = await import('../Js/controls.js');
+const { keys, keys2, resetKeys, consumeReady, handleControls, updateInputBuffers } = await import('../Js/controls.js');
 function sendKey(type, key, options = {}) {
     const event = new Event(type, { cancelable: true });
     Object.defineProperties(event, {
@@ -176,6 +176,7 @@ test('Um bloqueio preserva a vida e consome o golpe daquele contato', () => {
     const [first, second] = combatants();
     activate(first);
     second.protect();
+    second.update(0.2); // Bloqueio sustentado, depois da janela de parry.
     const events = resolveExchange(first, second, 10, 10);
     equal(events.length, 1);
     equal(events[0].type, 'blocked');
@@ -220,6 +221,95 @@ test('Espaço e L atacam separadamente; poções podem ser desativadas no versus
     equal(first.health, 50);
     equal(first.potions, 3);
     assert(!first.isHealing);
+    resetKeys();
+});
+
+test('Um toque curto de ataque durante a pausa de impacto executa uma única vez ao retomar', () => {
+    resetKeys();
+    const pair = combatants();
+    const accepted = [0, 0];
+    pair.forEach((actor, index) => {
+        const attack = actor.attack.bind(actor);
+        actor.attack = () => {
+            const result = attack();
+            if (result) accepted[index]++;
+            return result;
+        };
+    });
+    sendKey('keydown', ' ');
+    sendKey('keydown', 'l');
+    // O loop continua contando o tempo, mas não processa ações durante o impacto.
+    updateInputBuffers(1 / 60);
+    sendKey('keyup', ' ');
+    sendKey('keyup', 'l');
+    for (let i = 0; i < 3; i++) updateInputBuffers(1 / 60);
+    assert(pair.every(actor => !actor.isAttacking));
+    handleControls(pair[0], keys);
+    handleControls(pair[1], keys2);
+    assert(pair.every(actor => actor.isAttacking), 'Soltar a tecla não pode apagar uma pressão recente durante o impacto.');
+    for (let frame = 0; frame < 120; frame++) {
+        updateInputBuffers(1 / 60);
+        pair.forEach((actor, index) => {
+            actor.update(1 / 60);
+            handleControls(actor, index === 0 ? keys : keys2);
+        });
+    }
+    equal(accepted.join(','), '1,1', 'Cada pressão só pode gerar uma ação aceita.');
+    assert(pair.every(actor => !actor.isAttacking), 'O ataque não pode se repetir depois da recuperação.');
+    resetKeys();
+});
+
+test('Uma pressão de ataque expirada ou descartada pelo reset não reaparece para nenhum jogador', () => {
+    resetKeys();
+    const [first, second] = combatants();
+    for (const key of [' ', 'l']) {
+        sendKey('keydown', key);
+        sendKey('keyup', key);
+    }
+    updateInputBuffers(0.2);
+    handleControls(first, keys);
+    handleControls(second, keys2);
+    assert(!first.isAttacking && !second.isAttacking, 'Uma entrada antiga precisa expirar antes de poder atacar.');
+    for (const key of [' ', 'l']) {
+        sendKey('keydown', key);
+        sendKey('keyup', key);
+    }
+    resetKeys();
+    handleControls(first, keys);
+    handleControls(second, keys2);
+    assert(!first.isAttacking && !second.isAttacking, 'Reset de modo deve descartar os ataques pendentes dos dois jogadores.');
+    equal(first.combo.state, 0);
+    equal(second.combo.state, 0);
+});
+
+test('Segurar defesa durante um ataque não cria um parry automático quando a ação termina', () => {
+    resetKeys();
+    const [first] = combatants();
+    first.attack();
+    sendKey('keydown', 's');
+    handleControls(first, keys);
+    assert(!first.isProtecting, 'Uma ação em andamento não pode ficar protegida.');
+    for (let i = 0; i < 120 && (first.isAttacking || first.isRecovering); i++) first.update(1 / 60);
+    handleControls(first, keys);
+    assert(first.isProtecting, 'A tecla mantida pode iniciar bloqueio normal ao recuperar o controle.');
+    assert(!first.isParryActive, 'A tecla já estava mantida, portanto não é uma nova tentativa de parry.');
+    resetKeys();
+});
+
+test('Soltar defesa enquanto recebe dano permite uma nova tentativa legítima após o cooldown', () => {
+    resetKeys();
+    const [first, second] = combatants();
+    first.facing = 'left'; // O atacante está à direita: um golpe pelas costas não pode ser defendido.
+    sendKey('keydown', 's');
+    handleControls(first, keys);
+    equal(first.takeDamage(10, second), 'hit');
+    sendKey('keyup', 's');
+    handleControls(first, keys);
+    for (let i = 0; i < 40; i++) first.update(1 / 60);
+    first.facing = 'right';
+    sendKey('keydown', 's');
+    handleControls(first, keys);
+    assert(first.isParryActive, 'A liberação durante o dano precisa limpar o estado anterior da guarda.');
     resetKeys();
 });
 

@@ -5,8 +5,9 @@ import { resolveAttack, resolveExchange } from './combat.js';
 import { STORY_STAGES, getStoryScene, REUNION_SCENE, EPILOGUE_SCENE } from './story.js';
 import { loadStoryProgress, saveStoryProgress } from './storyProgress.js';
 import { VersusMatch } from './versus.js';
+import { CombatTraining } from './training.js';
 import { SimulationClock } from './clock.js';
-import { handleControls, keys, keys2, consumeReady, resetKeys } from './controls.js';
+import { handleControls, keys, keys2, consumeReady, resetKeys, updateInputBuffers } from './controls.js';
 import * as audioManager from './audioManager.js';
 
 const canvas = document.querySelector('canvas');
@@ -48,6 +49,12 @@ let campaignEnding = false;
 let versus = null;
 let versusResultShown = false;
 let playerSprites;
+let combatFeedback = [];
+let training = null;
+let trainingRevision = -1;
+let trainingTransitionTime = 0;
+let trainingAttackTime = 1.2;
+let trainingResultShown = false;
 
 window.getStoryProgress = () => loadStoryProgress();
 window.hasStorySave = () => {
@@ -104,6 +111,7 @@ function leaveToMenu() {
     isPaused = false;
     isLoadingNextStage = false;
     gameOver = false;
+    training = null;
     musicStarted = false;
     resetKeys();
     clock.reset();
@@ -144,6 +152,7 @@ function setupVersusRound() {
     stageDefinition = { background: SPRITE_PATHS.BACKGROUND_FLORESTA, versus: true };
     pianoObject = tombstonePortal = null;
     effects = [];
+    combatFeedback = [];
     notice = null;
     hitStop = 0;
     gameOver = false;
@@ -156,7 +165,7 @@ function setupVersusRound() {
 function startSession({ mode: selectedMode = 'story', resume = false } = {}) {
     sessionId++;
     pianoRequestId++;
-    mode = ['story', 'endless', 'versus'].includes(selectedMode) ? selectedMode : 'story';
+    mode = ['story', 'endless', 'versus', 'practice'].includes(selectedMode) ? selectedMode : 'story';
     pianoModule?.resetPianoChallenge();
     isPianoActive = false;
     pianoModule?.deactivatePianoControls();
@@ -174,9 +183,13 @@ function startSession({ mode: selectedMode = 'story', resume = false } = {}) {
         currentStage = storyProgress.stage;
         persistStory();
     } else storyProgress = null;
+    training = null;
     if (mode === 'versus') {
         versus = new VersusMatch();
         setupVersusRound();
+    } else if (mode === 'practice') {
+        versus = null;
+        setupPractice();
     } else {
         versus = null;
         setupStage(selectStage(currentStage));
@@ -255,6 +268,7 @@ function setupStage(definition) {
     }
     player.reset({ x: 100, y: 0 });
     effects = [];
+    combatFeedback = [];
     hitStop = 0;
     notice = null;
     gameOver = false;
@@ -361,7 +375,7 @@ async function togglePiano(show) {
 
 function setPaused(value) {
     if (!window.jogoIniciado || gameOver || isLoadingNextStage || storySceneActive || campaignEnding ||
-        versus?.state.endsWith('over') || isPaused === value) return;
+        versus?.state.endsWith('over') || mode === 'practice' && trainingResultShown || isPaused === value) return;
     isPaused = value;
     resetKeys();
     clock.reset();
@@ -391,17 +405,114 @@ function isNear(object) {
 }
 
 function addImpact(result) {
-    const blocked = result.type === 'blocked';
-    audioManager.playEffect(blocked ? 'block' : 'hit');
-    if (!blocked) hitStop = GAME_CONFIG.HIT_STOP_DURATION;
+    const counter = result.type === 'hit' && result.isCounter;
+    const colors = { hit: '#ffd67a', blocked: '#a8e2ff', parried: '#7bf5ef', 'guard-break': '#ff896d' };
+    const label = counter ? 'CONTRA-ATAQUE' : {
+        parried: 'PARRY', 'guard-break': 'GUARDA QUEBRADA', blocked: 'BLOQUEIO'
+    }[result.type];
+    audioManager.playEffect(counter ? 'counter' : result.type === 'blocked' ? 'block' : result.type);
+    if (result.type !== 'blocked') hitStop = result.type === 'hit' ? GAME_CONFIG.HIT_STOP_DURATION : 0.075;
     for (let i = 0; i < 12; i++) {
         const angle = Math.random() * Math.PI * 2;
         const speed = 60 + Math.random() * 150;
         effects.push({
             x: result.x, y: result.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-            life: 0.25, color: blocked ? '#a8e2ff' : '#ffd67a'
+            life: 0.25, color: colors[result.type] || '#ffd67a'
         });
     }
+    if (label) combatFeedback.push({ text: label, x: result.x, y: result.y - 24, life: 0.8, color: colors[result.type] });
+}
+
+function setupPractice() {
+    training = new CombatTraining();
+    trainingRevision = -1;
+    trainingResultShown = false;
+    trainingTransitionTime = 0;
+    enemy = createPlayer({ x: 440, y: 240 });
+    enemy.name = 'Parceiro de treino';
+    stageDefinition = { background: SPRITE_PATHS.BACKGROUND_FLORESTA, practice: true };
+    background.image = loadedImages[stageDefinition.background];
+    tombstonePortal = pianoObject = null;
+    effects = [];
+    combatFeedback = [];
+    notice = null;
+    hitStop = 0;
+    gameOver = isPaused = false;
+    applyPracticeLesson();
+}
+
+function applyPracticeLesson() {
+    const keepGuard = keys.s.pressed && training.step === 'guard-break';
+    const ground = canvas.height - GAME_CONFIG.FLOOR_HEIGHT - player.height;
+    player.reset({ x: training.step === 'move' ? 150 : 280, y: ground });
+    enemy.reset({ x: training.step === 'move' ? 650 : 440, y: ground });
+    player.onGround = enemy.onGround = true;
+    player.potions = enemy.potions = 0;
+    player.facing = 'right';
+    enemy.facing = 'left';
+    trainingAttackTime = 1.2;
+    trainingRevision = training.revision;
+    trainingTransitionTime = 0;
+    resetKeys();
+    keys.s.pressed = keepGuard;
+    clock.reset();
+    training.update(0, player, enemy);
+}
+
+function trainingImpact(event) {
+    addImpact(event);
+    if (training.onImpact(event)) {
+        trainingTransitionTime = event.type === 'guard-break' ? GAME_CONFIG.GUARD_BREAK_DURATION + 0.2 : 0.5;
+    }
+}
+
+function updatePractice(dt) {
+    if (trainingTransitionTime > 0) {
+        trainingTransitionTime = Math.max(0, trainingTransitionTime - dt);
+        player.velocity.x = enemy.velocity.x = 0;
+        player.update(dt);
+        enemy.update(dt);
+        if (trainingTransitionTime > 0) return;
+    }
+    if (training.complete) {
+        if (!trainingResultShown) {
+            trainingResultShown = true;
+            resetKeys();
+            audioManager.pauseMusic();
+            const token = sessionId;
+            window.showTrainingComplete({
+                onRetry: () => {
+                    if (token !== sessionId) return;
+                    setupPractice();
+                    audioManager.resumeMusic();
+                },
+                onMenu: leaveToMenu
+            });
+        }
+        return;
+    }
+    if (trainingRevision !== training.revision) applyPracticeLesson();
+    // Practice has no game over: restore health before a real contact can be lethal.
+    player.health = Math.max(80, player.health);
+    enemy.health = Math.max(80, enemy.health);
+    const previousAttack = [player.isAttacking, enemy.isAttacking];
+    handleControls(player, keys, { allowPotion: false });
+    enemy.velocity.x = 0;
+    enemy.stopProtecting();
+    enemy.facing = 'left';
+    if (training.targetMode === 'attack') {
+        if (!enemy.isActionLocked) {
+            trainingAttackTime -= dt;
+            if (trainingAttackTime <= 0 && enemy.attack()) trainingAttackTime = 1.2;
+        }
+    } else trainingAttackTime = 1.2;
+    player.update(dt);
+    enemy.update(dt);
+    if ((!previousAttack[0] && player.isAttacking) || (!previousAttack[1] && enemy.isAttacking)) audioManager.playEffect('swing');
+    const wasRevision = training.revision;
+    for (const event of resolveExchange(player, enemy, GAME_CONFIG.PLAYER_DAMAGE, GAME_CONFIG.ENEMY_DAMAGE)) trainingImpact(event);
+    training.update(dt, player, enemy);
+    if (training.revision !== wasRevision && trainingTransitionTime === 0) trainingTransitionTime = 0.5;
 }
 
 function updateVersus(dt) {
@@ -451,18 +562,28 @@ function updateVersus(dt) {
 
 function update(dt) {
     if (isPaused || isLoadingNextStage || isPianoActive || storySceneActive || campaignEnding || gameOver) return;
+    updateInputBuffers(dt);
     for (const effect of effects) {
         effect.x += effect.vx * dt;
         effect.y += effect.vy * dt;
         effect.life -= dt;
     }
     effects = effects.filter(effect => effect.life > 0);
+    for (const feedback of combatFeedback) {
+        feedback.life -= dt;
+        feedback.y -= 22 * dt;
+    }
+    combatFeedback = combatFeedback.filter(feedback => feedback.life > 0);
     if (notice) {
         notice.time -= dt;
         if (notice.time <= 0) notice = null;
     }
     if (hitStop > 0) {
         hitStop -= dt;
+        return;
+    }
+    if (mode === 'practice') {
+        updatePractice(dt);
         return;
     }
     if (mode === 'versus') {
@@ -498,9 +619,9 @@ function update(dt) {
     }
 }
 
-function drawBar(x, y, width, fighter, label) {
+function drawBar(x, y, width, fighter, label, showPosture = true) {
     ctx.fillStyle = '#10151ddd';
-    ctx.fillRect(x - 8, y - 27, width + 16, 58);
+    ctx.fillRect(x - 8, y - 27, width + 16, showPosture ? 86 : 58);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'left';
@@ -515,7 +636,54 @@ function drawBar(x, y, width, fighter, label) {
     ctx.font = '12px Arial';
     ctx.textAlign = 'right';
     ctx.fillStyle = '#fff';
-    ctx.fillText(`${fighter.health} / ${fighter.maxHealth}`, x + width - 4, y + 13);
+    ctx.fillText(`${Math.round(fighter.health)} / ${fighter.maxHealth}`, x + width - 4, y + 13);
+    if (!showPosture) return;
+    ctx.fillStyle = '#3f3740';
+    ctx.fillRect(x, y + 25, width, 6);
+    ctx.fillStyle = fighter.isStunned ? '#ff896d' : fighter.isParryActive ? '#7bf5ef' : '#e2bf6e';
+    ctx.fillRect(x, y + 25, width * fighter.posture / fighter.maxPosture, 6);
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`Postura ${Math.ceil(fighter.posture)} / ${fighter.maxPosture}`, x, y + 47);
+    ctx.textAlign = 'right';
+    const status = fighter.guardBreakTime > 0 ? 'GUARDA QUEBRADA' : fighter.staggerTime > 0 ? 'DESEQUILIBRADO'
+        : fighter.counterWindow > 0 ? 'CONTRA-ATAQUE!' : fighter.isParryActive ? 'PARRY' : fighter.parryReady ? 'Parry pronto' : '';
+    ctx.fillText(status, x + width, y + 47);
+}
+
+function drawPracticeInstructions() {
+    ctx.fillStyle = '#10151df0';
+    ctx.fillRect(24, 128, canvas.width - 48, 84);
+    ctx.fillStyle = '#ffe2a0';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(training.title, 40, 154);
+    ctx.fillStyle = '#fff';
+    ctx.font = '15px Arial';
+    const words = training.instruction.split(' ');
+    let line = '';
+    let y = 179;
+    for (const word of words) {
+        const next = line ? `${line} ${word}` : word;
+        if (ctx.measureText(next).width > canvas.width - 90 && line) {
+            ctx.fillText(line, 40, y);
+            y += 20;
+            line = word;
+        } else line = next;
+    }
+    ctx.fillText(line, 40, y);
+    const cue = trainingTransitionTime > 0 ? 'Etapa concluída!'
+        : training.targetMode === 'attack' && enemy.isAttacking && enemy.currentSpriteFrame === 1 ? 'AGORA · S'
+        : training.targetMode === 'attack' && (enemy.isAttacking || trainingAttackTime < 0.55) ? 'Prepare a defesa…'
+        : training.step === 'counter' && training.counterPrimed ? 'ESPAÇO · Contra-ataque!' : null;
+    if (cue) {
+        ctx.font = 'bold 17px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#10151dee';
+        ctx.fillRect(canvas.width / 2 - 155, 226, 310, 34);
+        ctx.fillStyle = cue.startsWith('AGORA') ? '#7bf5ef' : '#ffe2a0';
+        ctx.fillText(cue, canvas.width / 2, 249);
+    }
 }
 
 function draw() {
@@ -525,7 +693,7 @@ function draw() {
     tombstonePortal?.draw(ctx);
     player.draw(ctx);
     ctx.save();
-    if (mode === 'versus') ctx.filter = 'hue-rotate(150deg)';
+    if (mode === 'versus' || mode === 'practice') ctx.filter = 'hue-rotate(150deg)';
     enemy?.draw(ctx);
     ctx.restore();
     for (const effect of effects) {
@@ -535,18 +703,31 @@ function draw() {
     }
     ctx.globalAlpha = 1;
     drawBar(24, 47, 275, player, mode === 'versus' ? 'JOGADOR 1 · BIMU' : 'BIMU');
-    if (enemy) drawBar(canvas.width - 299, 47, 275, enemy, enemy.name);
+    if (enemy) drawBar(canvas.width - 299, 47, 275, enemy, enemy.name, mode === 'versus' || mode === 'practice');
     ctx.textAlign = 'center';
     ctx.font = 'bold 18px Arial';
     ctx.fillStyle = '#fff';
-    ctx.fillText(mode === 'versus' ? `${Math.ceil(versus.timeLeft)}s` : `FASE ${currentStage + 1}`, canvas.width / 2, 34);
+    ctx.fillText(mode === 'practice' ? 'TREINO' : mode === 'versus' ? `${Math.ceil(versus.timeLeft)}s` : `FASE ${currentStage + 1}`, canvas.width / 2, 34);
     ctx.font = '14px Arial';
-    ctx.fillText(mode === 'versus' ? `ROUND ${versus.round} · ${versus.scores[0]} × ${versus.scores[1]}` :
+    ctx.fillText(mode === 'practice' ? `${Math.min(training.index + 1, training.total)} / ${training.total} etapas` : mode === 'versus' ? `ROUND ${versus.round} · ${versus.scores[0]} × ${versus.scores[1]}` :
         stageDefinition.bonus ? 'Um momento de descanso' : mode === 'story' ? 'A Última Nota' : 'Arenas sem fim', canvas.width / 2, 56);
     ctx.textAlign = 'left';
-    ctx.fillText(mode === 'versus' ? 'WASD · Espaço para atacar' : `E · Poções: ${player.potions}`, 24, 96);
+    ctx.fillText(mode === 'practice' ? 'Sem derrota · pratique com calma' : mode === 'versus' ? 'WASD · Espaço para atacar' : `E · Poções: ${player.potions}`, 24, 112);
     ctx.textAlign = 'right';
-    ctx.fillText(mode === 'versus' ? 'Setas · L para atacar · Esc para pausar' : 'Esc · Pausar', canvas.width - 24, 96);
+    ctx.fillText(mode === 'versus' ? 'Setas · L para atacar · Esc para pausar' : 'Esc · Pausar', canvas.width - 24, 112);
+    if (mode === 'practice') drawPracticeInstructions();
+    for (const feedback of combatFeedback) {
+        ctx.globalAlpha = Math.min(1, feedback.life * 3);
+        ctx.font = 'bold 15px Arial';
+        const x = Math.max(115, Math.min(canvas.width - 115, feedback.x));
+        const width = ctx.measureText(feedback.text).width + 18;
+        ctx.fillStyle = '#10151de8';
+        ctx.fillRect(x - width / 2, feedback.y - 18, width, 25);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = feedback.color || '#ffd67a';
+        ctx.fillText(feedback.text, x, feedback.y);
+    }
+    ctx.globalAlpha = 1;
     const versusPrompt = mode === 'versus' && versus.state === 'ready'
         ? `J1: ${versus.ready[0] ? 'pronto' : 'F para ficar pronto'} · J2: ${versus.ready[1] ? 'pronto' : 'Enter para ficar pronto'}`
         : mode === 'versus' && versus.state === 'countdown' ? `Preparem-se! ${Math.ceil(versus.countdown)}` : null;
@@ -630,7 +811,7 @@ window.addEventListener('game:retry', () => {
     if (mode === 'story') showStageNarrative();
 });
 window.addEventListener('keydown', event => {
-    if (event.key !== 'Escape' || event.repeat || storySceneActive || campaignEnding) return;
+    if (event.key !== 'Escape' || event.repeat || storySceneActive || campaignEnding || trainingResultShown && mode === 'practice') return;
     event.preventDefault();
     if (isPianoActive && !isPaused) {
         togglePiano(false);

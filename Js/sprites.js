@@ -1,4 +1,4 @@
-import { GAME_CONFIG } from './gameConfig.js';
+import { GAME_CONFIG, PLAYER_ATTACK_PROFILES } from './gameConfig.js';
 
 const BASE_FPS = 60;
 const validDelta = deltaTime => Number.isFinite(deltaTime) && deltaTime > 0 ? deltaTime : 0;
@@ -31,6 +31,7 @@ class Sprite {
     setSprite(spriteKey) {
         if (this.dead && spriteKey !== 'dead') return;
         if (this.isAttacking || this.isHealing || this.isHurt) return;
+        if (this.isStunned && spriteKey !== 'hurt' && spriteKey !== 'dead') return;
         if (this.currentSpriteKey === spriteKey) return;
 
         const sprite = this.sprites[spriteKey];
@@ -58,6 +59,7 @@ class Sprite {
         ctx.translate(this.position.x + this.offset.x, this.position.y + this.offset.y);
         ctx.scale(this.facing === 'left' ? -1 : 1, 1);
         if (this.damageFlashTime > 0) ctx.filter = 'brightness(2.5) saturate(0)';
+        else if (this.parryFlashTime > 0) ctx.filter = 'brightness(2) sepia(1) hue-rotate(140deg)';
         ctx.drawImage(
             this.image,
             this.currentSpriteFrame * frameWidth, 0, frameWidth, this.image.height,
@@ -82,9 +84,15 @@ class Sprite {
             const actionEnded = this.currentSpriteKey.includes('attack') ||
                 this.currentSpriteKey === 'hurt';
             if (actionEnded) {
+                if (this.isStunned) {
+                    this.currentSpriteFrame = this.totalSpriteFrames - 1;
+                    this.elapsedTime = 0;
+                    return;
+                }
                 if (this.currentSpriteKey.includes('attack') && this.combo) {
-                    // The player gets the full combo window after recovery.
-                    this.combo.lastAttackTime = this.simulationTime;
+                    this.attackRecoveryTime = this.activeAttackProfile?.recovery || 0;
+                    // The full combo window begins after any extra recovery.
+                    this.combo.lastAttackTime = this.simulationTime + this.attackRecoveryTime * 1000;
                 }
                 this.isAttacking = false;
                 this.isHealing = false;
@@ -113,6 +121,9 @@ class Fighter extends Sprite {
             ...options.body
         };
         this.attackConfig = { range: 56, ...options.attack };
+        this.attackProfiles = Object.fromEntries(Object.entries(options.attackProfiles ?? PLAYER_ATTACK_PROFILES)
+            .map(([name, profile]) => [name, { ...profile }]));
+        this.maxPosture = options.maxPosture ?? GAME_CONFIG.POSTURE_MAX;
         this.maxHealth = options.maxHealth || 100;
         this.initialPotions = options.potions ?? 3;
         this.spawnPosition = { ...this.position };
@@ -134,7 +145,7 @@ class Fighter extends Sprite {
 
     get attackBox() {
         const body = this.hurtBox;
-        const width = this.attackConfig.range * this.scale;
+        const width = (this.activeAttackProfile?.range ?? this.attackConfig.range) * this.scale;
         const height = (this.attackConfig.height ?? this.body.height * 0.65) * this.scale;
         const overlap = 4 * this.scale;
         return {
@@ -150,7 +161,7 @@ class Fighter extends Sprite {
     }
 
     get isAttackActive() {
-        if (!this.isAttacking || this.dead || this.isHurt || this.isHealing || this.isProtecting) return false;
+        if (!this.isAttacking || this.dead || this.isHurt || this.isHealing || this.isProtecting || this.isStunned || this.isRecovering) return false;
         // Individual sprite configs may override active frames with zero-based
         // indices. Defaults reserve preparation and recovery around the impact.
         if (Array.isArray(this.currentSprite?.activeFrames)) {
@@ -161,6 +172,23 @@ class Fighter extends Sprite {
         const start = Math.min(lastImpactFrame, Math.max(1, Math.floor(this.totalSpriteFrames * impactRatio)));
         const end = Math.min(lastImpactFrame, Math.max(start, Math.ceil(this.totalSpriteFrames * 0.75) - 1));
         return this.currentSpriteFrame >= start && this.currentSpriteFrame <= end;
+    }
+
+    get activeAttackProfile() {
+        return this.isAttacking ? this.attackProfiles[this.currentSpriteKey] || null : null;
+    }
+
+    get attackDamageMultiplier() { return this.activeAttackProfile?.damageMultiplier ?? 1; }
+    get isRecovering() { return this.attackRecoveryTime > 0; }
+    get isStunned() { return this.guardBreakTime > 0 || this.staggerTime > 0; }
+    get isActionLocked() {
+        return this.dead || this.isAttacking || this.isHealing || this.isHurt || this.isStunned || this.isRecovering;
+    }
+    get parryReady() {
+        return this.onGround && !this.isActionLocked && !this.guardInputHeld && this.parryCooldownTime <= 0;
+    }
+    get isParryActive() {
+        return this.isProtecting && !this.isStunned && this.parryWindowTime > 0;
     }
 
     // reset({ x, y }) also clears action/timing/knockback state between stages.
@@ -187,25 +215,90 @@ class Fighter extends Sprite {
         this.hurtTime = 0;
         this.damageFlashTime = 0;
         this.invulnerabilityTime = 0;
+        this.posture = this.maxPosture;
+        this.postureRegenDelayTime = 0;
+        this.guardBreakTime = 0;
+        this.staggerTime = 0;
+        this.parryWindowTime = 0;
+        this.parryCooldownTime = 0;
+        this.counterWindow = 0;
+        this.attackRecoveryTime = 0;
+        this.guardInputHeld = false;
+        this.parryFlashTime = 0;
         this.currentSpriteKey = '';
         this.setSprite('idle');
     }
 
-    takeDamage(amount, attacker) {
-        if (this.dead || this.invulnerabilityTime > 0 || !(amount > 0)) return 'ignored';
-        if (this.isProtecting) return 'blocked';
+    isFacingAttacker(attacker) {
+        if (!attacker?.hurtBox) return true;
+        const own = this.hurtBox;
+        const other = attacker.hurtBox;
+        const distance = other.position.x + other.width / 2 - (own.position.x + own.width / 2);
+        if (Math.abs(distance) < 0.001) return attacker.facing !== this.facing;
+        return this.facing === 'right' ? distance > 0 : distance < 0;
+    }
 
-        this.health = Math.max(0, this.health - amount);
+    // Combat snapshots this decision before applying simultaneous contacts.
+    previewDamage(amount, attacker) {
+        if (this.dead || this.invulnerabilityTime > 0 || !(amount > 0)) return 'ignored';
+        if (!this.isProtecting || this.isStunned || !this.isFacingAttacker(attacker)) return 'hit';
+        if (attacker && this.isParryActive) return 'parried';
+        return this.posture <= GAME_CONFIG.BLOCK_POSTURE_COST ? 'guard-break' : 'blocked';
+    }
+
+    cancelAction() {
         this.isAttacking = false;
-        this.combo.state = 0;
-        this.combo.lastAttackTime = -Infinity;
         this.isHealing = false;
         this.isHurt = false;
         this.isProtecting = false;
+        this.parryWindowTime = 0;
+        this.attackRecoveryTime = 0;
+        this.combo.state = 0;
+        this.combo.lastAttackTime = -Infinity;
         this.velocity.x = 0;
         this.hasDealtDamage = true;
+    }
+
+    applyStagger(duration) {
+        if (this.dead) return;
+        this.cancelAction();
+        this.staggerTime = Math.max(this.staggerTime, duration);
+        this.hurtTime = 0;
+        this.setSprite('hurt');
+    }
+
+    // frozenReaction is internal to the simultaneous-contact resolver.
+    takeDamage(amount, attacker, frozenReaction) {
+        const reaction = frozenReaction ?? this.previewDamage(amount, attacker);
+        if (reaction === 'ignored') return 'ignored';
+        if (reaction === 'parried') {
+            this.parryWindowTime = 0;
+            this.parryFlashTime = 0.14;
+            this.counterWindow = GAME_CONFIG.COUNTER_WINDOW;
+            attacker?.applyStagger(GAME_CONFIG.PARRY_STAGGER_DURATION);
+            return 'parried';
+        }
+        if (reaction === 'blocked' || reaction === 'guard-break') {
+            this.posture = Math.max(0, this.posture - GAME_CONFIG.BLOCK_POSTURE_COST);
+            this.postureRegenDelayTime = GAME_CONFIG.POSTURE_REGEN_DELAY;
+            if (reaction === 'guard-break') {
+                this.cancelAction();
+                this.counterWindow = 0;
+                this.guardBreakTime = GAME_CONFIG.GUARD_BREAK_DURATION;
+                this.damageFlashTime = 0.12;
+                this.hurtTime = 0;
+                this.setSprite('hurt');
+            }
+            return reaction;
+        }
+
+        this.health = Math.max(0, this.health - amount);
+        this.cancelAction();
+        this.counterWindow = 0;
+        this.hurtTime = 0;
         this.damageFlashTime = 0.12;
         this.invulnerabilityTime = 0.16;
+        this.postureRegenDelayTime = GAME_CONFIG.POSTURE_REGEN_DELAY;
         if (attacker) {
             const ownCenter = this.hurtBox.position.x + this.hurtBox.width / 2;
             const otherBox = attacker.hurtBox;
@@ -217,6 +310,8 @@ class Fighter extends Sprite {
 
         if (this.health === 0) {
             this.dead = true;
+            this.guardBreakTime = 0;
+            this.staggerTime = 0;
             this.setSprite('dead');
         } else {
             this.setSprite('hurt');
@@ -258,23 +353,31 @@ class Fighter extends Sprite {
 
     update(deltaTime = 1 / BASE_FPS) {
         const dt = validDelta(deltaTime);
+        const previousStun = Math.max(this.guardBreakTime, this.staggerTime);
+        const previousRegenDelay = this.postureRegenDelayTime;
         this.simulationTime += dt * 1000;
-        this.damageFlashTime = Math.max(0, this.damageFlashTime - dt);
-        this.invulnerabilityTime = Math.max(0, this.invulnerabilityTime - dt);
-        this.hurtTime = Math.max(0, this.hurtTime - dt);
-        if (this.isHurt && this.hurtTime === 0) {
+        for (const timer of ['damageFlashTime', 'parryFlashTime', 'invulnerabilityTime', 'hurtTime',
+            'guardBreakTime', 'staggerTime', 'parryWindowTime', 'parryCooldownTime', 'counterWindow',
+            'attackRecoveryTime', 'postureRegenDelayTime']) {
+            this[timer] = Math.max(0, this[timer] - dt);
+            if (this[timer] < 1e-10) this[timer] = 0;
+        }
+        if ((this.isHurt && this.hurtTime === 0) || (previousStun > 0 && !this.isStunned)) {
             this.isHurt = false;
             this.setSprite('idle');
         }
-        if (this.dead || this.isAttacking || this.isProtecting || this.isHealing || this.isHurt) {
-            this.velocity.x = 0;
+        if (!this.dead && !this.isProtecting) {
+            // Account for the fraction of a step left after delay/stun expiry.
+            const regenerationTime = Math.max(0, dt - Math.max(previousRegenDelay, previousStun));
+            this.posture = Math.min(this.maxPosture, this.posture + GAME_CONFIG.POSTURE_REGEN_RATE * regenerationTime);
         }
+        if (this.isActionLocked || this.isProtecting) this.velocity.x = 0;
         this.applyGravity(dt);
         this.animate(dt);
     }
 
     startAttack(spriteKey) {
-        if (this.dead || this.isAttacking || this.isProtecting || this.isHealing || this.isHurt || !this.onGround) return false;
+        if (this.isActionLocked || this.isProtecting || !this.onGround) return false;
         if (!this.sprites[spriteKey]?.image) return false;
         this.setSprite(spriteKey);
         // Repeating the same attack must always restart its animation.
@@ -287,7 +390,7 @@ class Fighter extends Sprite {
     }
 
     attack() {
-        if (this.dead || this.isAttacking || this.isProtecting || this.isHealing || this.isHurt || !this.onGround) return false;
+        if (this.isActionLocked || this.isProtecting || !this.onGround) return false;
         if (this.simulationTime - this.lastAttackTime < GAME_CONFIG.PLAYER_ATTACK_COOLDOWN) return false;
         const previousState = this.simulationTime - this.combo.lastAttackTime > GAME_CONFIG.COMBO_ATTACK_WINDOW
             ? 0 : this.combo.state;
@@ -300,19 +403,28 @@ class Fighter extends Sprite {
     }
 
     protect() {
-        if (this.dead || !this.onGround || this.isAttacking || this.isHealing || this.isHurt) return false;
+        const freshInput = !this.guardInputHeld;
+        this.guardInputHeld = true;
+        if (this.isActionLocked || !this.onGround || this.posture <= 0) return false;
+        if (this.isProtecting) return true;
         this.setSprite('protect');
         this.isProtecting = true;
         this.velocity.x = 0;
+        if (freshInput && this.parryCooldownTime <= 0) {
+            this.parryWindowTime = GAME_CONFIG.PARRY_WINDOW;
+            this.parryCooldownTime = GAME_CONFIG.PARRY_COOLDOWN;
+        }
         return true;
     }
 
     stopProtecting() {
         this.isProtecting = false;
+        this.guardInputHeld = false;
+        this.parryWindowTime = 0;
     }
 
     usePotion() {
-        if (this.dead || this.isAttacking || this.isProtecting || this.isHealing || this.isHurt ||
+        if (this.isActionLocked || this.isProtecting ||
             this.potions <= 0 || this.health >= this.maxHealth) return false;
         this.potions--;
         this.health = Math.min(this.maxHealth, this.health + GAME_CONFIG.PLAYER_HEAL_AMOUNT);
@@ -325,7 +437,7 @@ class Fighter extends Sprite {
     }
 
     jump() {
-        if (this.dead || !this.onGround || this.isAttacking || this.isProtecting || this.isHealing || this.isHurt) return false;
+        if (this.isActionLocked || !this.onGround || this.isProtecting) return false;
         this.velocity.y = -8;
         this.onGround = false;
         this.setSprite('jumping');
@@ -335,7 +447,7 @@ class Fighter extends Sprite {
 
 class FighterAI extends Fighter {
     constructor(options) {
-        super(options);
+        super({ ...options, attackProfiles: options.attackProfiles ?? {} });
         this.attackThreshold = options.attackThreshold ?? 100;
         this.attackCooldown = options.attackCooldown ?? GAME_CONFIG.ENEMY_HIT_COOLDOWN;
         this.availableAttacks = options.availableAttacks || [];
@@ -348,7 +460,7 @@ class FighterAI extends Fighter {
     }
 
     updateAI(player, deltaTime = 1 / BASE_FPS) {
-        if (this.dead || this.isAttacking || this.isHealing || this.isHurt || !player || player.dead) {
+        if (this.isActionLocked || !player || player.dead) {
             this.velocity.x = 0;
             this.update(deltaTime);
             return;

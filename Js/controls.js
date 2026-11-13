@@ -3,7 +3,7 @@ import { GAME_CONFIG } from './gameConfig.js';
 function createInput() {
     return {
         a: { pressed: false }, d: { pressed: false }, s: { pressed: false },
-        w: { pressed: false, hold: false }, space: { pressed: false, hold: false },
+        w: { pressed: false, hold: false }, space: { pressed: false, hold: false, bufferTime: 0 },
         e: { pressed: false, hold: false }, q: { pressed: false, hold: false },
         escape: { pressed: false, hold: false }, ready: { pressed: false, hold: false },
         lastDirection: 'd', lastMovementPress: { key: null, time: 0 }, isRunning: false
@@ -20,11 +20,18 @@ export function resetKeys() {
             if (value && typeof value === 'object' && 'pressed' in value) {
                 value.pressed = false;
                 if ('hold' in value) value.hold = false;
+                if ('bufferTime' in value) value.bufferTime = 0;
             }
         }
         input.isRunning = false;
         input.lastMovementPress = { key: null, time: 0 };
     }
+}
+
+// Buffers use simulation time, including impact pauses, and are cleared on pause/menu.
+export function updateInputBuffers(deltaTime) {
+    const dt = Number.isFinite(deltaTime) ? Math.max(0, deltaTime) : 0;
+    for (const input of inputs) input.space.bufferTime = Math.max(0, input.space.bufferTime - dt);
 }
 
 // Each physical press signals readiness once. Releasing the key permits a new press.
@@ -37,15 +44,12 @@ export function consumeReady(playerIndex) {
 
 export function handleControls(player, input = keys, { allowPotion = true } = {}) {
     player.velocity.x = 0;
-    if (player.dead) return;
-
-    // Defesa só começa quando a ação anterior terminou; não concede imunidade ao atacar.
-    if (player.isAttacking || player.isHealing || player.isHurt) return;
-    if (input.s.pressed && player.onGround) {
-        player.protect();
-        return;
-    }
-    player.stopProtecting();
+    // Observe press/release even during stun or recovery. Holding guard through an
+    // interruption must not open a fresh parry window when the action unlocks.
+    if (input.s.pressed) player.protect();
+    else player.stopProtecting();
+    if (player.isActionLocked) return;
+    if (input.s.pressed && player.onGround) return;
 
     let sprite = player.onGround ? 'idle' : 'jumping';
     const direction = input[input.lastDirection]?.pressed
@@ -60,9 +64,10 @@ export function handleControls(player, input = keys, { allowPotion = true } = {}
         input.w.hold = true;
         sprite = 'jumping';
     }
-    if (input.space.pressed && !input.space.hold) {
-        player.attack();
+    if (input.space.pressed && !input.space.hold || input.space.bufferTime > 0) {
+        const started = player.attack();
         input.space.hold = true;
+        if (started) input.space.bufferTime = 0;
     }
     if (input.e.pressed && !input.e.hold) {
         if (allowPotion) player.usePotion();
@@ -90,6 +95,7 @@ window.addEventListener('keydown', event => {
     if (event.repeat) return;
     const [input, key] = mapped;
     input[key].pressed = true;
+    if (key === 'space') input.space.bufferTime = GAME_CONFIG.ATTACK_INPUT_BUFFER;
     if (key === 'a' || key === 'd') {
         const now = performance.now();
         input.isRunning = input.lastMovementPress.key === key &&
