@@ -1,38 +1,19 @@
-/**
- * Carrega uma lista de imagens e retorna uma Promise que resolve
- * quando todas as imagens foram carregadas.
- * @param {string[]} paths Array com os caminhos das imagens.
- * @returns {Promise<Object>} Uma promessa que resolve com um objeto
- * mapeando caminhos para objetos Image carregados.
- */
-export function loadImages(paths) {
-    return new Promise(resolve => {
-        const images = {};
-        const totalImages = paths.length;
-        let loadedCount = 0;
+// Resolve os recursos em relação ao módulo, inclusive quando o jogo está em uma subpasta.
+export async function loadImages(paths, onProgress = () => {}) {
+    const images = {};
+    let loaded = 0;
+    onProgress(loaded, paths.length);
 
-        if (totalImages === 0) {
-            resolve(images);
-            return;
-        }
+    await Promise.all(paths.map(path => new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => {
+            images[path] = image;
+            onProgress(++loaded, paths.length);
+            resolve();
+        };
+        image.onerror = () => reject(new Error(`Não foi possível carregar: ${path}`));
+        image.src = new URL(path, import.meta.url).href;
+    })));
 
-        paths.forEach(path => {
-            const img = new Image();
-            img.onload = () => {
-                loadedCount++;
-                if (loadedCount === totalImages) {
-                    resolve(images);
-                }
-            };
-            img.onerror = () => {
-                console.error(`Falha ao carregar a imagem: ${path}`);
-                loadedCount++;
-                if (loadedCount === totalImages) {
-                    resolve(images); 
-                }
-            };
-            img.src = path;
-            images[path] = img;
-        });
-    });
+    return images;
 }

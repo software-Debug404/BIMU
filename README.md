@@ -2,6 +2,13 @@
 
 https://ajornadasamurai.netlify.app/
 
+## Desenvolvimento
+
+- [Checklist de melhorias](CHECKLIST.md): entregas concluídas e próximas etapas.
+- [História — A Última Nota](HISTORIA.md): texto de referência para a campanha planejada.
+- Para executar localmente: `python3 -m http.server 8000`, depois abra `http://localhost:8000`.
+- [Testes automatizados](tests/README.md): verificação da física, do combate e da integração.
+
 Sobre o Projeto
 Bimu é um jogo de luta 2D em estilo plataforma desenvolvido com HTML, CSS e JavaScript puro. O objetivo principal foi criar um sistema de combate simples, responsivo e visualmente atrativo utilizando apenas tecnologias web, sem bibliotecas externas ou banco de dados.
 

@@ -1,127 +1,240 @@
-const overlay = document.querySelector(".overlay");
-const canvas = document.querySelector("canvas");
+const overlay = document.querySelector('.overlay');
+const canvas = document.querySelector('canvas');
+const mainMenu = document.getElementById('mainMenu');
+const controlsScreen = document.getElementById('controlsScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const loadingScreen = document.getElementById('loadingScreen');
+const loadingTitle = document.getElementById('loadingTitle');
+const levelNumber = document.getElementById('levelNumber');
+const loadingBar = document.getElementById('loadingBar');
+const loadingProgress = document.getElementById('loadingProgress');
+const loadingTip = document.getElementById('loadingTip');
+const loadingError = document.getElementById('loadingError');
+const reloadButton = document.getElementById('reloadButton');
+const pauseScreen = document.getElementById('pauseScreen');
+const assetStatus = document.getElementById('assetStatus');
+const audioReady = import(new URL('./Js/audioManager.js', document.baseURI).href);
+let audio;
+let screen = 'menu';
+let transitioning = false;
+let fatalError = null;
+let progress = { loaded: 0, total: 0 };
+let focusBeforePause = null;
 
-const mainMenu = document.getElementById("mainMenu");
-const controlsScreen = document.getElementById("controlsScreen");
-const gameOverScreen = document.getElementById("gameOverScreen");
-const restartButton = document.getElementById("restartButton");
-const loadingScreen = document.getElementById("loadingScreen");
-const levelNumber = document.getElementById("levelNumber");
-const loadingBar = document.getElementById("loadingBar");
-const loadingTip = document.getElementById("loadingTip");
-
-const loadingTips = [
-  "Dica: Inimigos diferentes têm padrões de ataque diferentes. Observe e aprenda!",
-  "Dica: Use a defesa (S) para bloquear ataques e evitar dano.",
-  "Dica: Fique de olho na sua barra de vida e use poções (E) quando necessário.",
-  "Dica: Correr (toque duplo em A ou D) pode ser útil para se reposicionar rapidamente.",
-  "Dica: Alguns estágios contêm segredos. Explore!",
-];
-
-function startGame() {
-
-    if (overlay) {
-    overlay.style.display = "none";
-  }
-
-  document.body.style.backgroundImage = "none";
-  document.body.style.backgroundColor = "#000";
-  mainMenu.style.display = "none";
-  controlsScreen.style.display = "none";
-  gameOverScreen.style.display = "none";
-  loadingScreen.style.display = "none";
-
-  canvas.classList.remove("hidden");
-  canvas.style.display = "block";
-  window.jogoIniciado = true; 
+function syncVolumes(volumes) {
+    document.querySelectorAll('[data-volume]').forEach(input => {
+        input.value = Math.round(volumes[input.dataset.volume] * 100);
+    });
+    document.querySelectorAll('[data-volume-output]').forEach(output => {
+        output.value = `${Math.round(volumes[output.dataset.volumeOutput] * 100)}%`;
+    });
 }
 
-function showLoadingScreen(level, onComplete) {
-  levelNumber.textContent = level;
-  loadingTip.textContent =
-    loadingTips[Math.floor(Math.random() * loadingTips.length)];
-  loadingScreen.style.display = "flex";
-  canvas.classList.add("hidden"); 
-  canvas.style.display = "none";
+audioReady.then(module => {
+    audio = module;
+    syncVolumes(audio.getVolumes());
+}).catch(() => {});
+window.addEventListener('audio:volumechange', event => syncVolumes(event.detail));
+document.querySelectorAll('[data-volume]').forEach(input => {
+    input.addEventListener('input', () => {
+        const channel = input.dataset.volume;
+        const value = Number(input.value) / 100;
+        audioReady.then(module => {
+            if (channel === 'music') module.setMusicVolume(value);
+            else module.setEffectsVolume(value);
+        }).catch(() => {});
+    });
+});
 
-  let progress = 0;
-  const interval = setInterval(() => {
-    progress += Math.random() * 20; 
-    loadingBar.style.width = `${Math.min(progress, 100)}%`;
+function unlockAudio() {
+    if (audio) audio.unlockAudio();
+    else audioReady.then(module => module.unlockAudio()).catch(() => {});
+}
 
-    if (progress >= 100) {
-      clearInterval(interval);
-      setTimeout(() => {
-        loadingScreen.style.display = "none";
-        if (onComplete) {
-          onComplete(); 
+function hideScreens() {
+    mainMenu.style.display = 'none';
+    controlsScreen.style.display = 'none';
+    gameOverScreen.style.display = 'none';
+    loadingScreen.style.display = 'none';
+}
+
+function startGame() {
+    document.activeElement?.blur();
+    hideScreens();
+    overlay.style.display = 'none';
+    document.body.classList.add('is-playing');
+    canvas.classList.remove('hidden');
+    canvas.style.display = 'block';
+    screen = 'playing';
+    window.jogoIniciado = true;
+    window.dispatchEvent(new CustomEvent('game:start'));
+}
+
+function setLoadingProgress(loaded, total) {
+    progress = { loaded, total };
+    const percentage = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+    loadingBar.style.width = `${percentage}%`;
+    loadingProgress.setAttribute('aria-valuenow', percentage);
+    assetStatus.textContent = total > 0 && loaded >= total ? 'Pronto para jogar' : `Carregando recursos: ${loaded}/${total}`;
+    if (!fatalError) loadingTip.textContent = total > 0 && loaded >= total ? 'Prepare sua espada.' : `Carregando recursos: ${loaded}/${total}`;
+}
+
+function showLoadError(error) {
+    fatalError = error instanceof Error ? error.message : String(error || 'Falha ao carregar os recursos do jogo.');
+    transitioning = false;
+    screen = 'error';
+    window.jogoIniciado = false;
+    hideScreens();
+    showPauseScreen(false);
+    canvas.classList.add('hidden');
+    canvas.style.display = 'none';
+    loadingScreen.style.display = 'flex';
+    loadingTitle.textContent = 'Não foi possível iniciar o jogo';
+    levelNumber.style.display = 'none';
+    loadingProgress.style.display = 'none';
+    loadingTip.textContent = 'Confira a conexão e tente recarregar.';
+    loadingError.textContent = fatalError;
+    loadingError.hidden = false;
+    reloadButton.hidden = false;
+    reloadButton.focus();
+}
+
+async function showLoadingScreen(level, onComplete) {
+    if (transitioning || fatalError) return false;
+    transitioning = true;
+    screen = 'loading';
+    hideScreens();
+    showPauseScreen(false);
+    canvas.classList.add('hidden');
+    canvas.style.display = 'none';
+    levelNumber.textContent = level;
+    loadingTitle.textContent = 'Entrando na fase:';
+    loadingScreen.style.display = 'flex';
+    setLoadingProgress(progress.loaded, progress.total);
+    try {
+        // Os módulos terminam de executar antes do evento load da página.
+        if (!window.gameReady && document.readyState !== 'complete') {
+            await new Promise(resolve => window.addEventListener('load', resolve, { once: true }));
         }
-      }, 500);
+        if (!window.gameReady) throw new Error('O módulo do jogo não pôde ser carregado.');
+        await window.gameReady;
+        if (fatalError) return false;
+        loadingBar.style.width = '100%';
+        loadingProgress.setAttribute('aria-valuenow', '100');
+        loadingTip.textContent = 'Prepare sua espada.';
+        await new Promise(resolve => setTimeout(resolve, 300));
+        if (fatalError) return false;
+        loadingScreen.style.display = 'none';
+        await onComplete?.();
+        screen = 'playing';
+        return true;
+    } catch (error) {
+        showLoadError(error);
+        return false;
+    } finally {
+        transitioning = false;
     }
-  }, 150);
 }
 
 function showGameOverScreen() {
-  canvas.classList.add("hidden");
-  canvas.style.display = "none";
-  gameOverScreen.style.display = "flex"; 
+    screen = 'gameover';
+    showPauseScreen(false);
+    hideScreens();
+    canvas.classList.add('hidden');
+    canvas.style.display = 'none';
+    gameOverScreen.style.display = 'flex';
+    document.getElementById('retryButton').focus();
 }
 
-
-function restartGame() {
-  window.location.reload();
-}
-
-document.addEventListener("keydown", function (event) {
-  if (event.key === "Enter") {
-    // Se o menu principal estiver visível (primeira vez apertando Enter)
-    if (getComputedStyle(mainMenu).display !== "none") {
-      mainMenu.style.display = "none";
-      controlsScreen.style.display = "block";
-      
-      // Chama a função para iniciar a música
-      if (window.startMenuMusic) {
-          window.startMenuMusic();
-      }
-
-    } else if (getComputedStyle(controlsScreen).display === "block") {
-      showLoadingScreen(1, startGame); 
+function showPauseScreen(show) {
+    if (show) {
+        if (!pauseScreen.hidden) return;
+        focusBeforePause = document.activeElement;
+        pauseScreen.hidden = false;
+        document.getElementById('resumeButton').focus();
+    } else {
+        if (pauseScreen.contains(document.activeElement)) document.activeElement.blur();
+        pauseScreen.hidden = true;
+        if (focusBeforePause?.isConnected && focusBeforePause.getClientRects().length > 0) focusBeforePause.focus();
+        focusBeforePause = null;
     }
-  }
+}
+
+function showControls() {
+    if (screen !== 'menu') return;
+    unlockAudio();
+    audioReady.then(module => module.playMenuMusic()).catch(() => {});
+    hideScreens();
+    screen = 'controls';
+    controlsScreen.style.display = 'block';
+    document.getElementById('playButton').focus();
+}
+
+function requestPlay() {
+    if (screen !== 'controls') return;
+    unlockAudio();
+    showLoadingScreen(1, startGame);
+}
+
+document.getElementById('startButton').addEventListener('click', showControls);
+document.getElementById('playButton').addEventListener('click', requestPlay);
+document.getElementById('restartButton').addEventListener('click', () => window.location.reload());
+reloadButton.addEventListener('click', () => window.location.reload());
+document.getElementById('retryButton').addEventListener('click', () => {
+    if (screen !== 'gameover') return;
+    unlockAudio();
+    document.activeElement?.blur();
+    screen = 'playing';
+    gameOverScreen.style.display = 'none';
+    canvas.classList.remove('hidden');
+    canvas.style.display = 'block';
+    window.dispatchEvent(new CustomEvent('game:retry'));
+});
+document.getElementById('resumeButton').addEventListener('click', () => {
+    unlockAudio();
+    window.dispatchEvent(new CustomEvent('game:resume'));
 });
 
-restartButton.addEventListener("click", restartGame);
+document.addEventListener('keydown', event => {
+    if (event.key === 'Tab' && !pauseScreen.hidden) {
+        const focusable = [...pauseScreen.querySelectorAll('button, input')];
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+        return;
+    }
+    if (event.key !== 'Enter' || event.repeat) return;
+    if (event.target.matches('input, button')) return;
+    if (screen === 'menu') {
+        event.preventDefault();
+        showControls();
+    } else if (screen === 'controls') {
+        event.preventDefault();
+        requestPlay();
+    }
+});
 
 function createLeaves() {
-  const colors = ["#e63946", "#a8dadc", "#f1faee", "#457b9d"];
-  for (let i = 0; i < 20; i++) {
-    const leaf = document.createElement("div");
-    leaf.className = "leaf";
-
-    leaf.innerHTML = "❀";
-    leaf.style.color = colors[Math.floor(Math.random() * colors.length)];
-    leaf.style.fontSize = Math.random() * 20 + 10 + "px";
-    leaf.style.left = Math.random() * 100 + "vw";
-    leaf.style.top = -50 + "px";
-
-    const animationDuration = Math.random() * 10 + 5;
-    leaf.style.animation = `fall ${animationDuration}s linear infinite`;
-
-    document.body.appendChild(leaf);
-
-    const keyframes = `
-                    @keyframes fall {
-                        to {
-                            transform: translateY(100vh) rotate(360deg);
-                            left: ${Math.random() * 100}vw;
-                        }
-                    }
-                `;
-
-    const style = document.createElement("style");
-    style.innerHTML = keyframes;
-    document.head.appendChild(style);
-  }
+    const colors = ['#e63946', '#a8dadc', '#f1faee', '#457b9d'];
+    for (let i = 0; i < 16; i++) {
+        const leaf = document.createElement('div');
+        leaf.className = 'leaf';
+        leaf.setAttribute('aria-hidden', 'true');
+        leaf.textContent = '❀';
+        leaf.style.color = colors[i % colors.length];
+        leaf.style.fontSize = `${12 + Math.random() * 16}px`;
+        leaf.style.left = `${Math.random() * 100}vw`;
+        leaf.style.animationDuration = `${7 + Math.random() * 8}s`;
+        leaf.style.animationDelay = `${-Math.random() * 10}s`;
+        document.body.appendChild(leaf);
+    }
 }
 
+Object.assign(window, { startGame, showLoadingScreen, setLoadingProgress, showLoadError, showGameOverScreen, showPauseScreen });
 createLeaves();

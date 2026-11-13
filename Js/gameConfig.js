@@ -7,7 +7,9 @@ export const GAME_CONFIG = {
     ENEMY_HIT_COOLDOWN: 500,
     PLAYER_DAMAGE: 10,
     ENEMY_DAMAGE: 10,
-    DESIRED_FPS: 120,
+    SIMULATION_STEP: 1 / 60,
+    MAX_FRAME_TIME: 0.1,
+    HIT_STOP_DURATION: 0.055,
 
     PLAYER_HEAL_AMOUNT: 20, 
     DOUBLE_TAP_WINDOW: 250, 
@@ -15,12 +17,12 @@ export const GAME_CONFIG = {
 };
 
 export const SPRITE_PATHS = {
-    BACKGROUND_FLORESTA: "../assets/background/Floresta.png",
+    BACKGROUND_FLORESTA: "../assets/background/Floresta.PNG",
     BACKGROUND_DESERTO: "../assets/background/Deserto.PNG",
     BACKGROUND_SUBMUNDO: "../assets/background/Submundo.PNG",
     DEFAULT_OBJECT: "../assets/objects/square.png",
-    PIANO: "../assets/objects/piano.PNG",
-    DIMENCIONAL_PORTAL: "../assets/objects/Dimensional_Portal.PNG",
+    PIANO: "../assets/objects/piano.png",
+    DIMENCIONAL_PORTAL: "../assets/objects/Dimensional_Portal.png",
 
     PLAYER: {
         IDLE: "../assets/player/Idle.png",
@@ -135,7 +137,7 @@ export const SPRITE_PATHS = {
             IDLE: "../assets/inimigo/Black_Werewolf/Idle.png",
             JUMP: "../assets/inimigo/Black_Werewolf/Jump.png",
             RUN: "../assets/inimigo/Black_Werewolf/Run.png",
-            WALK: "../assets/inimigo/Black_Werewolf/Walk.png",
+            WALK: "../assets/inimigo/Black_Werewolf/walk.png",
         },
         READ_WEREWOLF: {
             ATTACK_1: "../assets/inimigo/Red_Werewolf/Attack_1.png",
@@ -221,11 +223,11 @@ export const ENEMY_CONFIGS = {
         sprites: {
             idle:        { totalSpriteFrames: 7, framesPerSpriteFrame: 15, imageKey: 'IDLE' },
             running:     { totalSpriteFrames: 8, framesPerSpriteFrame: 8, imageKey: 'RUN' },
-            walk:        { totalSpriteFrames: 8, framesPerSpriteFrame: 12, imageKey: 'WALK' },
+            walk:        { totalSpriteFrames: 7, framesPerSpriteFrame: 12, imageKey: 'WALK' },
             dead:        { totalSpriteFrames: 4, framesPerSpriteFrame: 20, imageKey: 'DEAD' },
-            hurt:        { totalSpriteFrames: 3, framesPerSpriteFrame: 12, imageKey: 'HURT' },
-            protect:     { totalSpriteFrames: 4, framesPerSpriteFrame: 10, imageKey: 'PROTECT' },
-            run_attack:  { totalSpriteFrames: 5, framesPerSpriteFrame: 10, imageKey: 'RUN_ATTACK' },
+            hurt:        { totalSpriteFrames: 2, framesPerSpriteFrame: 12, imageKey: 'HURT' },
+            protect:     { totalSpriteFrames: 1, framesPerSpriteFrame: 10, imageKey: 'PROTECT' },
+            run_attack:  { totalSpriteFrames: 7, framesPerSpriteFrame: 10, imageKey: 'RUN_ATTACK' },
             attacking_1: { totalSpriteFrames: 5, framesPerSpriteFrame: 8, imageKey: 'ATTACK_1' },
             attacking_2: { totalSpriteFrames: 6, framesPerSpriteFrame: 8, imageKey: 'ATTACK_2' },
             attacking_3: { totalSpriteFrames: 4, framesPerSpriteFrame: 8, imageKey: 'ATTACK_3' }, 
@@ -237,11 +239,11 @@ export const ENEMY_CONFIGS = {
         sprites: {
             idle:        { totalSpriteFrames: 5, framesPerSpriteFrame: 15, imageKey: 'IDLE' },
             running:     { totalSpriteFrames: 8, framesPerSpriteFrame: 8, imageKey: 'RUN' },
-            walk:        { totalSpriteFrames: 8, framesPerSpriteFrame: 12, imageKey: 'WALK' },
+            walk:        { totalSpriteFrames: 9, framesPerSpriteFrame: 12, imageKey: 'WALK' },
             jumping:     { totalSpriteFrames: 7, framesPerSpriteFrame: 15, imageKey: 'JUMP' },
             dead:        { totalSpriteFrames: 6, framesPerSpriteFrame: 25, imageKey: 'DEAD' },
-            hurt:        { totalSpriteFrames: 3, framesPerSpriteFrame: 12, imageKey: 'HURT' },
-            protect:     { totalSpriteFrames: 4, framesPerSpriteFrame: 10, imageKey: 'PROTECT' },
+            hurt:        { totalSpriteFrames: 2, framesPerSpriteFrame: 12, imageKey: 'HURT' },
+            protect:     { totalSpriteFrames: 2, framesPerSpriteFrame: 10, imageKey: 'PROTECT' },
             attacking_1: { totalSpriteFrames: 4, framesPerSpriteFrame: 8, imageKey: 'ATTACK_1' },
             attacking_2: { totalSpriteFrames: 5, framesPerSpriteFrame: 8, imageKey: 'ATTACK_2' },
             attacking_3: { totalSpriteFrames: 4, framesPerSpriteFrame: 8, imageKey: 'ATTACK_3' },

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIMU — Testes de combate</title>
+    <style>
+        body { max-width: 960px; margin: 3rem auto; padding: 0 1rem; color: #eee; background: #171717; font: 16px/1.6 system-ui, sans-serif; }
+        .pass { color: #8be2a1; } .fail { color: #ff9292; }
+        li { margin: .5rem 0; } code { color: #ffdc94; }
+    </style>
+</head>
+<body>
+    <h1>Testes de combate do BIMU</h1>
+    <p id="summary">Executando testes…</p>
+    <ol id="results"></ol>
+    <p><a href="../index.html">Voltar ao jogo</a></p>
+    <script type="module">
+        import { runCombatTests } from './combat.test.mjs';
+        const report = await runCombatTests();
+        const summary = document.getElementById('summary');
+        summary.textContent = `${report.passed}/${report.total} testes passaram.`;
+        summary.className = report.passed === report.total ? 'pass' : 'fail';
+        for (const result of report.results) {
+            const item = document.createElement('li');
+            item.className = result.passed ? 'pass' : 'fail';
+            item.textContent = `${result.passed ? '✓' : '✗'} ${result.name}${result.error ? ` — ${result.error}` : ''}`;
+            document.getElementById('results').appendChild(item);
+        }
+        window.testReport = report;
+    </script>
+</body>
+</html>

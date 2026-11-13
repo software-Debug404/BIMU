@@ -2,82 +2,85 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A Jornada Samurai</title>
+    <title>BIMU — A Jornada do Samurai</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./css/piano.css">
-    
-    <script type="module" src="./js/gameConfig.js"></script>
-    <script type="module" src="./js/loader.js"></script>
-    <script type="module" src="./js/audioManager.js"></script> <script type="module" src="./js/sprites.js"></script>
-    <script type="module" src="./js/controls.js"></script>
-    
-    <script src="./js/ui.js" defer></script> 
-    
-    <script type="module" src="./js/game.js" defer></script>
+    <script src="./Js/ui.js" defer></script>
+    <script type="module" src="./Js/game.js"></script>
 </head>
 <body>
-    <div class="overlay"></div>
+    <div class="overlay" aria-hidden="true"></div>
 
-    <div class="menu-container" id="mainMenu">
+    <main class="menu-container" id="mainMenu">
         <h1 class="title">BIMU</h1>
         <p class="subtitle">A Jornada do Samurai</p>
-        <div class="start-prompt">Pressione ENTER para começar</div>
-    </div>
+        <button class="game-button" id="startButton" type="button">Começar</button>
+        <p class="start-prompt">Pressione ENTER para começar</p>
+        <p class="asset-status" id="assetStatus" aria-live="polite">Preparando os recursos...</p>
+        <fieldset class="audio-settings">
+            <legend>Áudio</legend>
+            <label for="menuMusicVolume">Música <output data-volume-output="music">35%</output></label>
+            <input id="menuMusicVolume" data-volume="music" type="range" min="0" max="100" value="35">
+            <label for="menuEffectsVolume">Efeitos <output data-volume-output="effects">50%</output></label>
+            <input id="menuEffectsVolume" data-volume="effects" type="range" min="0" max="100" value="50">
+        </fieldset>
+    </main>
 
-    <div class="controls-container" id="controlsScreen">
-        <h2>Controles do Jogo</h2>
+    <section class="controls-container" id="controlsScreen" aria-labelledby="controlsTitle">
+        <h2 id="controlsTitle">Controles do Jogo</h2>
         <div class="controls-grid">
-            <div class="control-item">
-                <div class="key">W</div> <div class="control-description">Pular</div>
-            </div>
-            <div class="control-item">
-                <div class="key">A</div> <div class="control-description">Mover para Esquerda</div>
-            </div>
-             <div class="control-item">
-                <div class="key">D</div> <div class="control-description">Mover para Direita</div>
-            </div>
-            <div class="control-item">
-                <div class="key">S</div> <div class="control-description">Proteger</div>
-            </div>
-            <div class="control-item">
-                <div class="key">E</div> <div class="control-description">Usar Poção</div>
-            </div>
-             <div class="control-item">
-                <div class="key key-space">ESPAÇO</div> <div class="control-description">Atacar</div>
-            </div>
-             <div class="control-item">
-                <div class="key">Q</div> <div class="control-description">Interagir (Portal / Piano)</div>
-            </div>
-            <div class="control-item">
-                <div class="key">ESC</div> <div class="control-description">Sair do Piano</div>
-            </div>
+            <div class="control-item"><div class="key">W</div><div class="control-description">Pular</div></div>
+            <div class="control-item"><div class="key">A</div><div class="control-description">Mover para a esquerda</div></div>
+            <div class="control-item"><div class="key">D</div><div class="control-description">Mover para a direita</div></div>
+            <div class="control-item"><div class="key">S</div><div class="control-description">Proteger</div></div>
+            <div class="control-item"><div class="key">E</div><div class="control-description">Usar poção</div></div>
+            <div class="control-item"><div class="key key-space">ESPAÇO</div><div class="control-description">Atacar</div></div>
+            <div class="control-item"><div class="key">Q</div><div class="control-description">Interagir com portal ou piano</div></div>
+            <div class="control-item"><div class="key">ESC</div><div class="control-description">Pausar / sair do piano</div></div>
         </div>
-        <div class="continue-prompt">Pressione ENTER para jogar</div>
-    </div>
+        <p class="controls-tip">Toque duas vezes em A ou D para correr.</p>
+        <button class="game-button" id="playButton" type="button">Jogar</button>
+        <p class="continue-prompt">Pressione ENTER para jogar</p>
+    </section>
 
-    <div class="gameover-container" id="gameOverScreen">
-        <h2 class="gameover-title">GAME OVER</h2>
+    <section class="gameover-container" id="gameOverScreen" aria-labelledby="gameOverTitle">
+        <h2 class="gameover-title" id="gameOverTitle">GAME OVER</h2>
         <p class="subtitle">O samurai foi derrotado em batalha...</p>
         <div class="buttons-container">
-            <button class="game-button" id="restartButton">
-                Voltar ao Início
-            </button>
+            <button class="game-button" id="retryButton" type="button">Tentar esta luta novamente</button>
+            <button class="game-button checkpoint-button" id="restartButton" type="button">Voltar ao início</button>
         </div>
-    </div>
+    </section>
 
-    <div class="loading-container" id="loadingScreen">
-        <div class="loading-title">Entrando no nível:</div>
+    <section class="pause-container" id="pauseScreen" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden>
+        <div class="pause-panel">
+            <h2 id="pauseTitle">Jogo pausado</h2>
+            <p>Respire. Sua jornada continua quando você estiver pronto.</p>
+            <fieldset class="audio-settings">
+                <legend>Áudio</legend>
+                <label for="pauseMusicVolume">Música <output data-volume-output="music">35%</output></label>
+                <input id="pauseMusicVolume" data-volume="music" type="range" min="0" max="100" value="35">
+                <label for="pauseEffectsVolume">Efeitos <output data-volume-output="effects">50%</output></label>
+                <input id="pauseEffectsVolume" data-volume="effects" type="range" min="0" max="100" value="50">
+            </fieldset>
+            <button class="game-button" id="resumeButton" type="button">Continuar</button>
+            <p class="controls-tip">Pressione ESC para continuar</p>
+        </div>
+    </section>
+
+    <section class="loading-container" id="loadingScreen" aria-live="polite" aria-label="Carregamento">
+        <div class="loading-title" id="loadingTitle">Entrando na fase:</div>
         <div class="loading-level" id="levelNumber">1</div>
-        <div class="loading-bar-container">
+        <div class="loading-bar-container" id="loadingProgress" role="progressbar" aria-label="Recursos carregados" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <div class="loading-bar" id="loadingBar"></div>
         </div>
-        <div class="loading-tip" id="loadingTip">Dica: Aprenda os padrões de ataque dos seus inimigos.</div>
-    </div>
-    
-    <div id="piano-container-wrapper" class="hidden"></div>
+        <div class="loading-tip" id="loadingTip">Preparando sua jornada...</div>
+        <p class="loading-error" id="loadingError" role="alert" hidden></p>
+        <button class="game-button" id="reloadButton" type="button" hidden>Recarregar o jogo</button>
+    </section>
 
-    <canvas class="hidden"></canvas>
+    <div id="piano-container-wrapper" class="hidden"></div>
+    <canvas class="hidden" aria-label="Arena de combate do BIMU"></canvas>
 </body>
 </html>

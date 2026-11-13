@@ -1,54 +1,144 @@
-// --- Novo Arquivo: js/audioManager.js ---
+const STORAGE_KEY = 'bimu:audio';
+const defaults = { music: 0.35, effects: 0.5 };
+const clampVolume = value => Math.min(1, Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0));
+let volumes = { ...defaults };
+
+try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved && typeof saved === 'object') {
+        for (const channel of Object.keys(defaults)) {
+            if (typeof saved[channel] === 'number' && Number.isFinite(saved[channel])) {
+                volumes[channel] = clampVolume(saved[channel]);
+            }
+        }
+    }
+} catch {
+    // O áudio continua disponível quando o navegador impede o armazenamento local.
+}
 
 let menuMusic;
 let gameMusic;
-let currentTrack = null; // Para saber qual música pausar/retomar
+let currentTrack = null;
+let musicPaused = false;
+let audioContext;
+let effectsGain;
 
-// Inicializa os elementos de áudio
 export function initAudio() {
-    menuMusic = new Audio('../assets/audio/menu-music.wav');
-    menuMusic.loop = true; // A música do menu tocará em loop
-
-    gameMusic = new Audio('../assets/audio/game-music.wav');
-    gameMusic.loop = true; // A música do jogo tocará em loop
+    if (menuMusic) return;
+    menuMusic = new Audio(new URL('../assets/audio/menu-music.wav', import.meta.url).href);
+    gameMusic = new Audio(new URL('../assets/audio/game-music.wav', import.meta.url).href);
+    for (const track of [menuMusic, gameMusic]) {
+        track.loop = true;
+        track.preload = 'auto';
+        track.volume = volumes.music;
+    }
 }
 
-// Para de tocar todas as músicas
-function stopAllMusic() {
-    if (menuMusic) { // Verifica se menuMusic existe
-        menuMusic.pause();
-        menuMusic.currentTime = 0;
+function tryPlay(track) {
+    if (!track) return;
+    try {
+        const playback = track.play();
+        if (playback?.catch) playback.catch(() => {});
+    } catch {
+        // Uma nova interação do jogador pode liberar a reprodução.
     }
-    if (gameMusic) { // Verifica se gameMusic existe
-        gameMusic.pause();
-        gameMusic.currentTime = 0;
-    }
-    currentTrack = null;
 }
-// Toca a música do menu
+
+function playTrack(track) {
+    if (currentTrack !== track) {
+        currentTrack?.pause();
+        if (currentTrack) currentTrack.currentTime = 0;
+        currentTrack = track;
+    }
+    musicPaused = false;
+    tryPlay(currentTrack);
+}
+
 export function playMenuMusic() {
-    stopAllMusic();
-    menuMusic.play().catch(e => console.error("Erro ao tocar música do menu:", e));
-    currentTrack = menuMusic;
+    initAudio();
+    playTrack(menuMusic);
 }
 
-// Toca a música do jogo
 export function playGameMusic() {
-    stopAllMusic();
-    gameMusic.play().catch(e => console.error("Erro ao tocar música do jogo:", e));
-    currentTrack = gameMusic;
+    initAudio();
+    playTrack(gameMusic);
 }
 
-// Pausa a música que estiver tocando
 export function pauseMusic() {
-    if (currentTrack) {
-        currentTrack.pause();
-    }
+    musicPaused = true;
+    currentTrack?.pause();
 }
 
-// Retoma a música que estava pausada
 export function resumeMusic() {
-    if (currentTrack) {
-        currentTrack.play().catch(e => console.error("Erro ao retomar a música:", e));
+    musicPaused = false;
+    tryPlay(currentTrack);
+}
+
+export function getVolumes() {
+    return { ...volumes };
+}
+
+function saveVolumes() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(volumes));
+    } catch {
+        // As configurações ainda funcionam durante esta sessão.
     }
+    window.dispatchEvent(new CustomEvent('audio:volumechange', { detail: getVolumes() }));
+}
+
+export function setMusicVolume(value) {
+    volumes.music = clampVolume(value);
+    for (const track of [menuMusic, gameMusic]) {
+        if (track) track.volume = volumes.music;
+    }
+    saveVolumes();
+}
+
+export function setEffectsVolume(value) {
+    volumes.effects = clampVolume(value);
+    if (effectsGain) effectsGain.gain.setTargetAtTime(volumes.effects, audioContext.currentTime, 0.01);
+    saveVolumes();
+}
+
+export function unlockAudio() {
+    initAudio();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass && !audioContext) {
+        try {
+            audioContext = new AudioContextClass();
+            effectsGain = audioContext.createGain();
+            effectsGain.gain.value = volumes.effects;
+            effectsGain.connect(audioContext.destination);
+        } catch {
+            audioContext = null;
+        }
+    }
+    if (audioContext?.state === 'suspended') audioContext.resume().catch(() => {});
+    if (!musicPaused && currentTrack?.paused) tryPlay(currentTrack);
+}
+
+export function playEffect(type) {
+    if (!['swing', 'hit', 'block'].includes(type) || volumes.effects === 0) return;
+    unlockAudio();
+    if (!audioContext || audioContext.state !== 'running') return;
+
+    const now = audioContext.currentTime;
+    const duration = type === 'swing' ? 0.12 : 0.09;
+    const oscillator = audioContext.createOscillator();
+    const envelope = audioContext.createGain();
+    oscillator.type = type === 'block' ? 'square' : 'triangle';
+    oscillator.frequency.setValueAtTime(type === 'block' ? 1200 : type === 'hit' ? 160 : 500, now);
+    oscillator.frequency.exponentialRampToValueAtTime(type === 'block' ? 480 : 45, now + duration);
+    envelope.gain.setValueAtTime(0.0001, now);
+    envelope.gain.exponentialRampToValueAtTime(type === 'swing' ? 0.12 : 0.22, now + 0.005);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    oscillator.connect(envelope);
+    envelope.connect(effectsGain);
+    oscillator.start(now);
+    oscillator.stop(now + duration);
+    oscillator.onended = () => {
+        oscillator.disconnect();
+        envelope.disconnect();
+    };
 }

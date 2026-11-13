@@ -1,106 +1,91 @@
-function initializeInteractivePiano() {
-    
-    const pianoContainer = document.getElementById('piano-container-wrapper');
-    if (!pianoContainer) return;
+import { getVolumes } from './audioManager.js';
 
-    const keys = pianoContainer.querySelectorAll('.key');
-    const checkbox = pianoContainer.querySelector('.checkbox__keys');
-    const switcher = pianoContainer.querySelector('.switcher');
-    const keysSection = pianoContainer.querySelector('.piano__keys');
+let activate = () => {};
+let deactivate = () => {};
 
-    const playNote = (note) => {
-        const audio = new Audio(`./notes/${note}.wav`);
-        audio.play();
+export function initializeInteractivePiano(container, onClose) {
+    const pianoKeys = [...container.querySelectorAll('[data-note]')];
+    const checkbox = container.querySelector('.checkbox__keys');
+    const switcher = container.querySelector('.switcher');
+    const keySection = container.querySelector('.piano__keys');
+    const layout = ['Tab', '1', 'q', '2', 'w', 'e', '4', 'r', '5', 't', '6', 'y', 'u', '8', 'i', '9', 'o', 'p', '-', '[', '=', ']', 'Backspace', String.fromCharCode(92)];
+    const sounds = new Set();
+    let active = false;
+
+    function press(key) {
+        if (!active || !key || key.classList.contains('pressed') || key.classList.contains('black--pressed')) return;
+        const audio = new Audio(new URL(`../notes/${key.dataset.note}.wav`, import.meta.url).href);
+        audio.volume = getVolumes().effects;
+        sounds.add(audio);
+        audio.addEventListener('ended', () => sounds.delete(audio), { once: true });
+        audio.play().catch(() => sounds.delete(audio));
+        key.classList.add(key.classList.contains('black') ? 'black--pressed' : 'pressed');
     }
-
-    const handleMouseDown = (key) => {
-        playNote(key.getAttribute('data-note'));
-
-        if (key.className.includes('black')) {
-            key.classList.add('black--pressed');
+    function release(key) {
+        key?.classList.remove('pressed', 'black--pressed');
+    }
+    function clear() {
+        pianoKeys.forEach(release);
+        for (const audio of sounds) audio.pause();
+        sounds.clear();
+    }
+    function keydown(event) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!event.repeat) onClose();
             return;
         }
-
-        key.classList.add('pressed');
+        const index = layout.indexOf(event.key.length === 1 ? event.key.toLowerCase() : event.key);
+        if (index < 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) press(pianoKeys[index]);
     }
-
-    const handleMouseUp = (key) => {
-        if (key.className.includes('black')) {
-            key.classList.remove('black--pressed');
-            return;
-        }
-        key.classList.remove('pressed');
+    function keyup(event) {
+        const index = layout.indexOf(event.key.length === 1 ? event.key.toLowerCase() : event.key);
+        if (index < 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        release(pianoKeys[index]);
     }
-    
-    keys.forEach((key) => {
-        key.addEventListener('mousedown', () => handleMouseDown(key));
-        key.addEventListener('mouseup', () => handleMouseUp(key));
-        key.addEventListener('mouseleave', () => handleMouseUp(key)); 
-    });
-
-    if (checkbox) {
-        checkbox.addEventListener('change', ({ target }) => {
-            if (target.checked) {
-                switcher.classList.add('switcher--active');
-                keysSection.classList.remove('disabled-keys');
-                return;
-            }
-    
-            switcher.classList.remove('switcher--active');
-            keysSection.classList.add('disabled-keys');
+    for (const key of pianoKeys) {
+        key.addEventListener('pointerdown', event => {
+            event.preventDefault();
+            key.setPointerCapture?.(event.pointerId);
+            press(key);
         });
+        key.addEventListener('pointerup', () => release(key));
+        key.addEventListener('pointercancel', () => release(key));
     }
-
-    const keyDownMapper = {
-        "Tab": () => handleMouseDown(keys[0]), "1": () => handleMouseDown(keys[1]), "q": () => handleMouseDown(keys[2]), "2": () => handleMouseDown(keys[3]), "w": () => handleMouseDown(keys[4]),
-        "e": () => handleMouseDown(keys[5]), "4": () => handleMouseDown(keys[6]), "r": () => handleMouseDown(keys[7]), "5": () => handleMouseDown(keys[8]), "t": () => handleMouseDown(keys[9]),
-        "6": () => handleMouseDown(keys[10]), "y": () => handleMouseDown(keys[11]), "u": () => handleMouseDown(keys[12]), "8": () => handleMouseDown(keys[13]), "i": () => handleMouseDown(keys[14]),
-        "9": () => handleMouseDown(keys[15]), "o": () => handleMouseDown(keys[16]), "p": () => handleMouseDown(keys[17]), "-": () => handleMouseDown(keys[18]), "[": () => handleMouseDown(keys[19]),
-        "=": () => handleMouseDown(keys[20]), "]": () => handleMouseDown(keys[21]), "Backspace": () => handleMouseDown(keys[22]), "\\": () => handleMouseDown(keys[23]),
-    }
-
-    const keyUpMapper = {
-        "Tab": () => handleMouseUp(keys[0]), "1": () => handleMouseUp(keys[1]), "q": () => handleMouseUp(keys[2]), "2": () => handleMouseUp(keys[3]), "w": () => handleMouseUp(keys[4]),
-        "e": () => handleMouseUp(keys[5]), "4": () => handleMouseUp(keys[6]), "r": () => handleMouseUp(keys[7]), "5": () => handleMouseUp(keys[8]), "t": () => handleMouseUp(keys[9]),
-        "6": () => handleMouseUp(keys[10]), "y": () => handleMouseUp(keys[11]), "u": () => handleMouseUp(keys[12]), "8": () => handleMouseUp(keys[13]), "i": () => handleMouseUp(keys[14]),
-        "9": () => handleMouseUp(keys[15]), "o": () => handleMouseUp(keys[16]), "p": () => handleMouseUp(keys[17]), "-": () => handleMouseUp(keys[18]), "[": () => handleMouseUp(keys[19]),
-        "=": () => handleMouseUp(keys[20]), "]": () => handleMouseUp(keys[21]), "Backspace": () => handleMouseUp(keys[22]), "\\": () => handleMouseUp(keys[23]),
-    }
-
-    const pianoKeyDownHandler = (event) => {
-       
-        if (event.key === 'Escape') return;
-
-        if (keyDownMapper[event.key]) {
-            event.preventDefault(); 
-            event.stopPropagation(); 
-            keyDownMapper[event.key]();
-        }
+    checkbox?.addEventListener('change', () => {
+        switcher?.classList.toggle('switcher--active', checkbox.checked);
+        keySection?.classList.toggle('disabled-keys', !checkbox.checked);
+    });
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'piano-close';
+    close.textContent = 'Voltar ao jogo · Esc';
+    close.addEventListener('click', onClose);
+    container.querySelector('.controls').appendChild(close);
+    activate = () => {
+        if (active) return;
+        active = true;
+        document.addEventListener('keydown', keydown, true);
+        document.addEventListener('keyup', keyup, true);
     };
-
-    const pianoKeyUpHandler = (event) => {
-        if (event.key === 'Escape') return;
-
-        if (keyUpMapper[event.key]) {
-             event.preventDefault();
-             event.stopPropagation();
-             keyUpMapper[event.key]();
-        }
+    deactivate = () => {
+        active = false;
+        document.removeEventListener('keydown', keydown, true);
+        document.removeEventListener('keyup', keyup, true);
+        clear();
+        if (container.contains(document.activeElement)) document.activeElement.blur();
     };
-
-    window.activatePianoControls = () => {
-        document.addEventListener('keydown', pianoKeyDownHandler, true); 
-        document.addEventListener('keyup', pianoKeyUpHandler, true);
-    };
-
-    window.deactivatePianoControls = () => {
-        document.removeEventListener('keydown', pianoKeyDownHandler, true);
-        document.removeEventListener('keyup', pianoKeyUpHandler, true);
-    };
+    window.addEventListener('blur', clear);
+    window.addEventListener('audio:volumechange', () => {
+        for (const audio of sounds) audio.volume = getVolumes().effects;
+    });
 }
 
-
-if (typeof window.pianoInitialized === 'undefined') {
-    initializeInteractivePiano();
-    window.pianoInitialized = true;
-}
+export function activatePianoControls() { activate(); }
+export function deactivatePianoControls() { deactivate(); }
